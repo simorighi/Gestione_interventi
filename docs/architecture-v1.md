@@ -2,8 +2,8 @@
 
 | | |
 |---|---|
-| **Team** | *(DreamCode, Simone Righi - Manuel Boscaini - Nicola Cortinovis - Nathan Seganti - Raul Zamperini)* |
-| **Cliente** | *(es. NordFacility S.r.l.)* |
+| **Team** | *DreamCode, Simone Righi - Manuel Boscaini - Nicola Cortinovis - Nathan Seganti - Raul Zamperini* |
+| **Cliente** | *NordFacility S.r.l.* |
 | **Data** | 23/09/2026 |
 | **Versione** | v1 — provvisoria per definizione, la confronterete con la v2 a dicembre |
 
