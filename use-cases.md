@@ -1,5 +1,7 @@
 # Attori e casi d'uso — [Nome progetto] / [Cliente]
 
+## UN OBIETTIVO PORTATO A TERMINE DA UN ATTORE DALL'INIZIO ALLA FINE 
+
 | | |
 |---|---|
 | **Team** | *(nome team, componenti)* |
@@ -8,6 +10,7 @@
 | **Versione** | v1 |
 
 ## Attori
+## <span style="color: red;"> DA IDENTIFICAREEEE caZZO </span>
 
 *Un attore è un ruolo, non una persona: la stessa persona può essere due
 attori. Prendeteli dalla sezione "utenti e ruoli" della richiesta cliente.*
@@ -19,6 +22,8 @@ attori. Prendeteli dalla sezione "utenti e ruoli" della richiesta cliente.*
 | | |
 
 ## Casi d'uso
+## <span style="color: red;"> DOBBIAMO SCRIVERLIII </span>
+
 
 *Formato minimo: attore + azione + risultato osservabile. Un caso d'uso senza
 attore è una funzione che nessuno ha chiesto; un attore senza casi d'uso è un
