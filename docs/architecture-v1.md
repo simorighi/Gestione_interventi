@@ -1,4 +1,4 @@
-# Architettura v1 — [Smart Maintenance] / [NordFacility S.r.l.]
+# Architettura v1 — Smart Maintenance / NordFacility S.r.l.
 
 | | |
 |---|---|
