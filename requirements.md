@@ -18,15 +18,26 @@ conseguenza concreta. Non descrivete ancora una soluzione.*
 
 ## Obiettivi del progetto
 
-*Elenco breve, dal punto di vista del cliente: cosa vuole ottenere, non come.*
+* Centralizzare tutte le segnalazioni di guasto o anomalia.
+* Ridurre i tempi di presa in carico e migliorare la visibilità sullo stato degli interventi.
+* Disporre di uno storico consultabile per edificio, area o impianto.
+* Consentire ai tecnici di aggiornare gli interventi direttamente durante l'attività.
+* Fornire al responsabile manutenzione una vista sintetica delle attività aperte e concluse.
+
 
 - Esempio: ridurre i tempi di presa in carico e migliorare la visibilità
   sullo stato degli interventi
 
 ## Requisiti funzionali
+### Funzionalità richieste:
 
-*Frasi su cui si può rispondere sì o no. Numerate, così potete richiamarle nei
-casi d'uso e nel backlog.*
+* Creazione di una segnalazione con luogo, categoria, descrizione, priorità proposta e fotografie.
+* Assegnazione della segnalazione a uno o più tecnici.
+* Gestione di un ciclo di stato almeno composto da: *segnalato*, *preso in carico*, *in lavorazione*, *sospeso*, *risolto*.
+* Inserimento di note tecniche e descrizione dell'intervento effettuato.
+* Ricerca e filtraggio per stato, edificio, categoria, tecnico e periodo.
+* Consultazione dello storico degli interventi relativi a uno stesso edificio o impianto.
+* Dashboard sintetica con numero di interventi aperti, in lavorazione e conclusi.  
 
 | # | Requisito |
 |---|---|
@@ -36,8 +47,11 @@ casi d'uso e nel backlog.*
 
 ## Requisiti non funzionali
 
-*Anche questi verificabili, non aggettivi. Se non riuscite a dire come lo
-misurereste, non è ancora un requisito.*
+* Interfaccia utilizzabile da browser su PC e tablet.
+* Configurazioni modificabili senza intervenire sul codice sorgente.
+* Separazione chiara tra componenti applicativi e persistenza dei dati.
+* Gestione coerente degli errori e restituzione di messaggi comprensibili agli utenti.
+* Predisposizione a future evoluzioni del workflow e delle categorie di intervento.
 
 | # | Requisito |
 |---|---|
@@ -51,9 +65,10 @@ archivio"</i></span>
 
 ## Vincoli dichiarati dal cliente
 
-*Copiateli dalla richiesta cliente: cosa il cliente esclude o impone
-esplicitamente (stack libero salvo diversa indicazione, ambiente di
-esecuzione, dati di test, ecc.).*
+* Non è richiesta l'integrazione con impianti fisici reali.
+* La soluzione deve poter essere eseguita in un ambiente controllato dal cliente.
+* Il cliente non impone uno specifico stack tecnologico.
+* Il progetto deve poter essere dimostrato utilizzando un set di dati di prova realistico.
 
 - Esempio: il cliente non impone uno specifico stack tecnologico
 
