@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Team** | *(inserire nome team e componenti)* |
+| **Team** | DreamCode, Boscaini Manuel, Cortinovis Nicola, Righi Simone, Seganti Nathan, Zamperini Raul |
 | **Cliente** | NordFacility S.r.l. |
 | **Data** | 23/09/2026 |
 | **Versione** | v1 |
