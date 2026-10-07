@@ -1,16 +1,24 @@
 # Modello Dati - Sistema di Segnalazioni
 
 ## 1. Entità e Relazioni
-
+## Finisco da chat con claude prossima volta
 Abbiamo individuato due entità principali per il dominio delle segnalazioni:
 
-*   **Utente**: Rappresenta la persona che effettua la segnalazione.
+*   **Segnalatore**: Rappresenta la persona che effettua la segnalazione.
     *   *Attributi*: Id (Numerico), Nome (Testo), Email (Testo).
 *   **Segnalazione**: Rappresenta il problema o ticket riportato.
-    *   *Attributi*: Id (Numerico), Titolo (Testo), Descrizione (Testo), Stato (Testo: es. "Aperta", "In Lavorazione", "Chiusa"), DataCreazione (Data/Ora).
+    *   *Attributi*: Id (Numerico), Titolo (Testo), Descrizione (Testo), Stato (Testo: es. "Aperta", "In Lavorazione", "Chiusa"), DataCreazione (Data/Ora),, priorità proposte. Poi ci sono fotografie da gestire in modo diverso con una logica. Dubbio stato magari va creata nuova entità se no va cambiato ogni volta riga.
+   
+*   **Luogo**
+   *   *Attributi*: Id (Numerico), Nome (Testo), Via (Testo), tipo (enum: edificio,area o impianto=
+*    **Intervento**
+   *   *Attributi*: Id (Numerico),  Note (Testo), Descrizione (Testo)
+*   **Tecnico**
+  *   *Attributi*: Id (Numerico), Nome (Testo)
+*   **Responsabile Manutenzione**
+*   **Amministratore**
 
-**Relazioni:**
-*   Un **Utente** può creare *molte* **Segnalazioni** (1:N).
+*   ** può creare *molte* **Segnalazioni** (1:N).
 *   Una **Segnalazione** è creata da *un solo* **Utente** (1:1).
 
 ---
