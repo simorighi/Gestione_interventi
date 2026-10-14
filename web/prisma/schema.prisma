@@ -1,0 +1,267 @@
+// Schema introspezionato da Supabase con `npx prisma db pull`: il database è la fonte di verità.
+// Le tabelle si modificano su Supabase, poi si rilancia `npm run db:pull`.
+// NON usare `prisma migrate` su questo database.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
+model Utente {
+  id                     Int              @id(map: "pk_utente") @default(autoincrement()) @map("id_utente")
+  nome                   String           @db.VarChar(100)
+  cognome                String           @db.VarChar(100)
+  email                  String           @db.VarChar(255)
+  passwordHash           String           @map("password_hash") @db.VarChar(255)
+  attivo                 Boolean          @default(true)
+  dataCreazione          DateTime         @default(now()) @map("data_creazione") @db.Timestamptz(6)
+  allegati               Allegato[]
+  assegnazioniFatte      Assegnazione[]   @relation("Responsabile")
+  logAudit               LogAudit[]
+  noteTecniche           NotaTecnica[]
+  segnalazioni           Segnalazione[]   @relation("Segnalatore")
+  cambiStato             StoricoStato[]
+  suggerimentiConfermati SuggerimentoAi[]
+  tecnico                Tecnico?
+  ruoli                  UtenteRuolo[]
+
+  @@map("utente")
+}
+
+model Ruolo {
+  id     Int           @id(map: "pk_ruolo") @default(autoincrement()) @map("id_ruolo")
+  nome   String        @unique(map: "uq_ruolo_nome") @db.VarChar(50)
+  utenti UtenteRuolo[]
+
+  @@map("ruolo")
+}
+
+model UtenteRuolo {
+  utenteId Int    @map("fk_utente")
+  ruoloId  Int    @map("fk_ruolo")
+  ruolo    Ruolo  @relation(fields: [ruoloId], references: [id], onUpdate: NoAction, map: "fk_utente_ruolo_ruolo")
+  utente   Utente @relation(fields: [utenteId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_utente_ruolo_utente")
+
+  @@id([utenteId, ruoloId], map: "pk_utente_ruolo")
+  @@map("utente_ruolo")
+}
+
+/// Specializzazione ISA di Utente: la PK è anche FK verso utente.
+model Tecnico {
+  utenteId         Int            @id(map: "pk_tecnico") @map("id_utente")
+  tipo             String         @db.VarChar(20)
+  azienda          String?        @db.VarChar(150)
+  specializzazione String?        @db.VarChar(100)
+  assegnazioni     Assegnazione[]
+  interventi       Intervento[]
+  utente           Utente         @relation(fields: [utenteId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_tecnico_utente")
+
+  @@map("tecnico")
+}
+
+/// Gerarchia di luoghi (es. edificio > piano > stanza > impianto).
+model Luogo {
+  id           Int            @id(map: "pk_luogo") @default(autoincrement()) @map("id_luogo")
+  nome         String         @db.VarChar(150)
+  tipo         String         @db.VarChar(20)
+  via          String?        @db.VarChar(150)
+  citta        String?        @db.VarChar(100)
+  cap          String?        @db.VarChar(10)
+  padreId      Int?           @map("fk_luogo_padre")
+  padre        Luogo?         @relation("GerarchiaLuoghi", fields: [padreId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_luogo_luogo_padre")
+  figli        Luogo[]        @relation("GerarchiaLuoghi")
+  segnalazioni Segnalazione[]
+
+  @@index([padreId], map: "ix_luogo_padre")
+  @@map("luogo")
+}
+
+model Categoria {
+  id           Int              @id(map: "pk_categoria") @default(autoincrement()) @map("id_categoria")
+  nome         String           @unique(map: "uq_categoria_nome") @db.VarChar(100)
+  descrizione  String?
+  attiva       Boolean          @default(true)
+  segnalazioni Segnalazione[]
+  suggerimenti SuggerimentoAi[]
+
+  @@map("categoria")
+}
+
+model Priorita {
+  id                    Int              @id(map: "pk_priorita") @default(autoincrement()) @map("id_priorita")
+  nome                  String           @unique(map: "uq_priorita_nome") @db.VarChar(50)
+  livello               Int              @unique(map: "uq_priorita_livello")
+  segnalazioniAssegnate Segnalazione[]   @relation("PrioritaAssegnata")
+  segnalazioniProposte  Segnalazione[]   @relation("PrioritaProposta")
+  suggerimenti          SuggerimentoAi[]
+
+  @@map("priorita")
+}
+
+model Stato {
+  id           Int            @id(map: "pk_stato") @default(autoincrement()) @map("id_stato")
+  nome         String         @unique(map: "uq_stato_nome") @db.VarChar(50)
+  ordine       Int            @unique(map: "uq_stato_ordine")
+  isFinale     Boolean        @default(false) @map("is_finale")
+  segnalazioni Segnalazione[]
+  storicoVerso StoricoStato[] @relation("StatoNuovo")
+  storicoDa    StoricoStato[] @relation("StatoPrecedente")
+
+  @@map("stato")
+}
+
+model Segnalazione {
+  id                  Int             @id(map: "pk_segnalazione") @default(autoincrement()) @map("id_segnalazione")
+  titolo              String          @db.VarChar(200)
+  descrizione         String
+  dataCreazione       DateTime        @default(now()) @map("data_creazione") @db.Timestamptz(6)
+  dataAggiornamento   DateTime        @default(now()) @updatedAt @map("data_aggiornamento") @db.Timestamptz(6)
+  dataChiusura        DateTime?       @map("data_chiusura") @db.Timestamptz(6)
+  segnalatoreId       Int             @map("fk_segnalatore")
+  luogoId             Int             @map("fk_luogo")
+  categoriaId         Int             @map("fk_categoria")
+  statoId             Int             @map("fk_stato")
+  prioritaPropostaId  Int             @map("fk_priorita_proposta")
+  prioritaAssegnataId Int?            @map("fk_priorita_assegnata")
+  allegati            Allegato[]
+  assegnazioni        Assegnazione[]
+  interventi          Intervento[]
+  noteTecniche        NotaTecnica[]
+  categoria           Categoria       @relation(fields: [categoriaId], references: [id], onUpdate: NoAction, map: "fk_segnalazione_categoria")
+  luogo               Luogo           @relation(fields: [luogoId], references: [id], onUpdate: NoAction, map: "fk_segnalazione_luogo")
+  prioritaAssegnata   Priorita?       @relation("PrioritaAssegnata", fields: [prioritaAssegnataId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_segnalazione_priorita_assegnata")
+  prioritaProposta    Priorita        @relation("PrioritaProposta", fields: [prioritaPropostaId], references: [id], onUpdate: NoAction, map: "fk_segnalazione_priorita_proposta")
+  segnalatore         Utente          @relation("Segnalatore", fields: [segnalatoreId], references: [id], onUpdate: NoAction, map: "fk_segnalazione_segnalatore")
+  stato               Stato           @relation(fields: [statoId], references: [id], onUpdate: NoAction, map: "fk_segnalazione_stato")
+  storicoStati        StoricoStato[]
+  suggerimenti        SuggerimentoAi?
+
+  @@index([categoriaId], map: "ix_segnalazione_categoria")
+  @@index([dataCreazione], map: "ix_segnalazione_data_creazione")
+  @@index([luogoId], map: "ix_segnalazione_luogo")
+  @@index([segnalatoreId], map: "ix_segnalazione_segnalatore")
+  @@index([statoId], map: "ix_segnalazione_stato")
+  @@map("segnalazione")
+}
+
+model Assegnazione {
+  id               Int          @id(map: "pk_assegnazione") @default(autoincrement()) @map("id_assegnazione")
+  dataAssegnazione DateTime     @default(now()) @map("data_assegnazione") @db.Timestamptz(6)
+  segnalazioneId   Int          @map("fk_segnalazione")
+  tecnicoId        Int          @map("fk_tecnico")
+  responsabileId   Int          @map("fk_responsabile")
+  responsabile     Utente       @relation("Responsabile", fields: [responsabileId], references: [id], onUpdate: NoAction, map: "fk_assegnazione_responsabile")
+  segnalazione     Segnalazione @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_assegnazione_segnalazione")
+  tecnico          Tecnico      @relation(fields: [tecnicoId], references: [utenteId], onUpdate: NoAction, map: "fk_assegnazione_tecnico")
+
+  @@unique([segnalazioneId, tecnicoId], map: "uq_assegnazione_segnalazione_tecnico")
+  @@index([tecnicoId], map: "ix_assegnazione_tecnico")
+  @@map("assegnazione")
+}
+
+model Intervento {
+  id                    Int           @id(map: "pk_intervento") @default(autoincrement()) @map("id_intervento")
+  descrizioneIntervento String        @map("descrizione_intervento")
+  dataInizio            DateTime      @default(now()) @map("data_inizio") @db.Timestamptz(6)
+  dataFine              DateTime?     @map("data_fine") @db.Timestamptz(6)
+  esito                 String?       @db.VarChar(100)
+  segnalazioneId        Int           @map("fk_segnalazione")
+  tecnicoId             Int           @map("fk_tecnico")
+  allegati              Allegato[]
+  segnalazione          Segnalazione  @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_intervento_segnalazione")
+  tecnico               Tecnico       @relation(fields: [tecnicoId], references: [utenteId], onUpdate: NoAction, map: "fk_intervento_tecnico")
+  noteTecniche          NotaTecnica[]
+
+  @@index([segnalazioneId], map: "ix_intervento_segnalazione")
+  @@index([tecnicoId], map: "ix_intervento_tecnico")
+  @@map("intervento")
+}
+
+model NotaTecnica {
+  id              Int          @id(map: "pk_nota_tecnica") @default(autoincrement()) @map("id_nota")
+  testo           String
+  dataInserimento DateTime     @default(now()) @map("data_inserimento") @db.Timestamptz(6)
+  segnalazioneId  Int          @map("fk_segnalazione")
+  autoreId        Int          @map("fk_autore")
+  interventoId    Int?         @map("fk_intervento")
+  autore          Utente       @relation(fields: [autoreId], references: [id], onUpdate: NoAction, map: "fk_nota_tecnica_autore")
+  intervento      Intervento?  @relation(fields: [interventoId], references: [id], onUpdate: NoAction, map: "fk_nota_tecnica_intervento")
+  segnalazione    Segnalazione @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_nota_tecnica_segnalazione")
+
+  @@index([segnalazioneId], map: "ix_nota_tecnica_segnalazione")
+  @@map("nota_tecnica")
+}
+
+model Allegato {
+  id              Int          @id(map: "pk_allegato") @default(autoincrement()) @map("id_allegato")
+  nomeFile        String       @map("nome_file") @db.VarChar(255)
+  percorsoStorage String       @unique(map: "uq_allegato_percorso") @map("percorso_storage") @db.VarChar(500)
+  tipoMime        String       @map("tipo_mime") @db.VarChar(100)
+  dimensione      BigInt
+  dataCaricamento DateTime     @default(now()) @map("data_caricamento") @db.Timestamptz(6)
+  segnalazioneId  Int          @map("fk_segnalazione")
+  caricatoDaId    Int          @map("fk_caricato_da")
+  interventoId    Int?         @map("fk_intervento")
+  caricatoDa      Utente       @relation(fields: [caricatoDaId], references: [id], onUpdate: NoAction, map: "fk_allegato_caricato_da")
+  intervento      Intervento?  @relation(fields: [interventoId], references: [id], onUpdate: NoAction, map: "fk_allegato_intervento")
+  segnalazione    Segnalazione @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_allegato_segnalazione")
+
+  @@index([segnalazioneId], map: "ix_allegato_segnalazione")
+  @@map("allegato")
+}
+
+model StoricoStato {
+  id                Int          @id(map: "pk_storico_stato") @default(autoincrement()) @map("id_storico")
+  dataCambio        DateTime     @default(now()) @map("data_cambio") @db.Timestamptz(6)
+  motivo            String?
+  segnalazioneId    Int          @map("fk_segnalazione")
+  statoPrecedenteId Int?         @map("fk_stato_precedente")
+  statoNuovoId      Int          @map("fk_stato_nuovo")
+  modificatoDaId    Int          @map("fk_modificato_da")
+  modificatoDa      Utente       @relation(fields: [modificatoDaId], references: [id], onUpdate: NoAction, map: "fk_storico_stato_modificato_da")
+  segnalazione      Segnalazione @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_storico_stato_segnalazione")
+  statoNuovo        Stato        @relation("StatoNuovo", fields: [statoNuovoId], references: [id], onUpdate: NoAction, map: "fk_storico_stato_stato_nuovo")
+  statoPrecedente   Stato?       @relation("StatoPrecedente", fields: [statoPrecedenteId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_storico_stato_stato_precedente")
+
+  @@index([segnalazioneId, dataCambio], map: "ix_storico_stato_segnalazione")
+  @@map("storico_stato")
+}
+
+/// Log immutabile: non va mai aggiornato né cancellato dall'applicazione.
+model LogAudit {
+  id              Int      @id(map: "pk_log_audit") @default(autoincrement()) @map("id_log")
+  dataOra         DateTime @default(now()) @map("data_ora") @db.Timestamptz(6)
+  azione          String   @db.VarChar(50)
+  tabellaRiferita String   @map("tabella_riferita") @db.VarChar(50)
+  chiaveRiferita  Int      @map("chiave_riferita")
+  valorePrima     String?  @map("valore_prima")
+  valoreDopo      String?  @map("valore_dopo")
+  utenteId        Int      @map("fk_utente")
+  utente          Utente   @relation(fields: [utenteId], references: [id], onUpdate: NoAction, map: "fk_log_audit_utente")
+
+  @@index([tabellaRiferita, chiaveRiferita], map: "ix_log_audit_riferimento")
+  @@map("log_audit")
+}
+
+model SuggerimentoAi {
+  id                   Int          @id(map: "pk_suggerimento_ai") @default(autoincrement()) @map("id_suggerimento")
+  dataGenerazione      DateTime     @default(now()) @map("data_generazione") @db.Timestamptz(6)
+  esitoConferma        String       @default("in_attesa") @map("esito_conferma") @db.VarChar(20)
+  segnalazioneId       Int          @unique(map: "uq_suggerimento_ai_segnalazione") @map("fk_segnalazione")
+  categoriaSuggeritaId Int          @map("fk_categoria_suggerita")
+  prioritaSuggeritaId  Int          @map("fk_priorita_suggerita")
+  confermatoDaId       Int?         @map("fk_confermato_da")
+  categoriaSuggerita   Categoria    @relation(fields: [categoriaSuggeritaId], references: [id], onUpdate: NoAction, map: "fk_suggerimento_ai_categoria")
+  confermatoDa         Utente?      @relation(fields: [confermatoDaId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_suggerimento_ai_confermato_da")
+  prioritaSuggerita    Priorita     @relation(fields: [prioritaSuggeritaId], references: [id], onUpdate: NoAction, map: "fk_suggerimento_ai_priorita")
+  segnalazione         Segnalazione @relation(fields: [segnalazioneId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_suggerimento_ai_segnalazione")
+
+  @@map("suggerimento_ai")
+}
+
+
