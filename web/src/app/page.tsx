@@ -14,7 +14,11 @@ export default function Home() {
   return (
     <main style={{ maxWidth: 760, margin: "48px auto", padding: "0 16px" }}>
       <h1>Smart Maintenance — API</h1>
-      <p>Endpoint disponibili (esempi pronti in <code>requests.http</code>):</p>
+      <p>
+        Prova le API dal browser: <a href="/api/docs"><strong>/api/docs</strong></a> (Swagger UI).
+        Specifica OpenAPI: <a href="/api/openapi.json"><code>/api/openapi.json</code></a>.
+      </p>
+      <p>Endpoint disponibili:</p>
       <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <tbody>
           {ENDPOINTS.map(([method, path, desc]) => (

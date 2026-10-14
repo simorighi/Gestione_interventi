@@ -9,6 +9,9 @@ const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
 });
 
+// `npm run db:seed -- --solo-utenti` crea solo gli utenti, senza luoghi e segnalazioni.
+const SOLO_UTENTI = process.argv.includes("--solo-utenti");
+
 // Password demo uguale per tutti: solo per sviluppo.
 const PASSWORD_DEMO = "password";
 
@@ -48,6 +51,8 @@ async function main() {
     update: {},
     create: { utenteId: utenti["Tecnico"], tipo: "interno", specializzazione: "Elettrico" },
   });
+
+  if (SOLO_UTENTI) return stampaUtenti(utenti);
 
   // Luoghi: niente chiavi naturali, quindi si creano solo se la tabella è vuota.
   // Vincoli DB: tipo in (edificio, area, impianto); solo un edificio è senza padre.
@@ -106,6 +111,10 @@ async function main() {
     }
   }
 
+  stampaUtenti(utenti);
+}
+
+function stampaUtenti(utenti: Record<string, number>) {
   console.log("Seed completato. Utenti demo (password: %s) — usa l'id come header x-user-id:", PASSWORD_DEMO);
   console.table(Object.entries(utenti).map(([ruolo, id]) => ({ id, ruolo })));
 }
