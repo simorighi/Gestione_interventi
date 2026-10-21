@@ -20,11 +20,9 @@ probabilmente due componenti.*
 
 | Componente | Risponde di | Non risponde di |
 |---|---|---|
-| *Esempio: API backend* | *regole, validazione, transizioni di stato, autorizzazione* | *come i dati appaiono a schermo* |
-| | | |
-| | | |
-| | | |
-
+| **API backend** | regole di business, validazione input, transizioni di stato, autorizzazione per ruolo, storico dei cambi di stato, documentazione OpenAPI | come i dati appaiono a schermo; come e dove sono memorizzati i dati |
+| **Database** | persistenza e integrità dei dati (segnalazioni, utenti, ruoli, anagrafiche, storico), schema e dati di seed | qualsiasi regola di business o permesso |
+| **Frontend**  | presentazione, navigazione e raccolta dell'input dell'utente | regole di business, autorizzazione, interazione |
 ## Diagramma
 
 *Scatole = componenti, frecce = "chiama"/"dipende da" con sopra cosa passa
@@ -34,13 +32,28 @@ ancora realizzato si disegna tratteggiato. Va bene un blocco Mermaid come
 questo, un disegno fotografato, o qualunque notazione capiate a colpo
 d'occhio come team — l'importante è che le frecce siano etichettate.*
 
+
 ```mermaid
 flowchart LR
-  Utente -->|HTTPS| Frontend
-  Frontend -->|HTTPS/JSON| API[API backend]
-  API -->|SQL| DB[(Database)]
-  API -.->|previsto: notifiche| Notifiche[Servizio notifiche]
+  Utente([Utente])
+
+  subgraph Perimetro["Perimetro DreamCode"]
+    Frontend["Frontend (previsto)"]
+    API[API backend]
+    DB[(Database)]
+  end
+
+  subgraph Fuori["Fuori dal perimetro"]
+    Notifiche["Sistema di notifiche aziendali (futuro)"]
+  end
+
+  Utente -.->|HTTPS| Frontend
+  Frontend -.->|HTTPS/JSON| API
+  Utente -->|HTTPS/JSON, oggi via client API| API
+  API -->|SQL| DB
+  API -.->|previsto: eventi di notifica| Notifiche
 ```
+
 
 ## Dipendenze
 
@@ -49,12 +62,12 @@ si dipende si ferma o risponde male.*
 
 | Componente | Dipende da | Se si ferma |
 |---|---|---|
-| *Esempio: Frontend* | *API backend* | *l'utente vede un errore, nessun dato scritto due volte* |
-| | | |
+| **Frontend** | **API backend** | **l'utente vede errori e non sta salvando nulla di quello che sta facendo** |
+|**API backend**|**Database** | **Se backend non si collega a database l'utente non riuscirà a vedere nessun dato** |
 
 ## Fuori dal perimetro
 
 *Cosa esiste ma non lo costruite voi: sistemi del cliente, servizi esterni,
 integrazioni future dichiarate nella richiesta.*
 
-- Esempio: integrazione con sistemi di notifica aziendali (futura, non in v1)
+- integrazione con sistemi di intelligenza artificiale
