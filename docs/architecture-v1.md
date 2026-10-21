@@ -23,11 +23,11 @@
 ```mermaid
 flowchart LR
   Utente -->|HTTPS / UI| Frontend[Frontend Next.js]
-  Frontend -->|HTTP/JSON (x-user-id)| API[API Backend Next.js]
+  Frontend -->|HTTP/JSON header x-user-id| API[API Backend Next.js]
   API -->|Zod Validation| API
   API -->|TCP/IP| Prisma[Prisma ORM Client]
   Prisma -->|SQL / Protocollo pg| DB[(Database PostgreSQL)]
-  
+
   API -.->|Metadata| Storage[Storage File Allegati]
   API -.->|Generazione| Swagger[Documentazione OpenAPI]
 ```
