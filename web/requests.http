@@ -1,0 +1,49 @@
+# Richieste di prova (REST Client per VS Code / HTTP client di JetBrains).
+# Gli id utente (header x-user-id) e i luoghi vengono creati da `npm run db:seed`,
+# che stampa gli id: aggiorna i valori qui sotto se non coincidono.
+@base = http://localhost:3000/api
+
+### Salute app + DB
+GET {{base}}/health
+
+### Anagrafiche
+GET {{base}}/stati
+###
+GET {{base}}/categorie
+###
+GET {{base}}/priorita
+###
+GET {{base}}/luoghi
+
+### Lista segnalazioni (tutti i filtri sono opzionali)
+GET {{base}}/segnalazioni?page=1&pageSize=10&q=luci
+
+### Dettaglio
+GET {{base}}/segnalazioni/1
+
+### Crea segnalazione (come Segnalatore)
+POST {{base}}/segnalazioni
+Content-Type: application/json
+x-user-id: 1
+
+{
+  "titolo": "Condizionatore rumoroso",
+  "descrizione": "Il condizionatore della sala riunioni fa un forte rumore all'accensione.",
+  "luogoId": 3,
+  "categoriaId": 3,
+  "prioritaPropostaId": 2
+}
+
+### Cambio stato Segnalato -> Preso in carico (come Responsabile)
+PATCH {{base}}/segnalazioni/1/stato
+Content-Type: application/json
+x-user-id: 3
+
+{ "statoId": 2, "motivo": "Presa in carico dal responsabile" }
+
+### Transizione non ammessa -> 400
+PATCH {{base}}/segnalazioni/1/stato
+Content-Type: application/json
+x-user-id: 3
+
+{ "statoId": 5 }
