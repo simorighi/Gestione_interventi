@@ -1,23 +1,28 @@
 # CONTRIBUTING
 
 | | |
+|---|---|
 | **Progetto** | *NordFacility Platform* |
 | **Team** | *Team Sviluppo NordFacility* |
 | **Data** | *21 Ottobre 2026* |
 | **Versione** | *v0.1 — riscrivetela quando le regole cambiano davvero* |
 
+Queste regole valgono per **tutti** i membri del team, comprese le persone
+che le hanno scritte. Se una regola non viene rispettata da nessuno, cambiatela
+qui — non ignoratela in silenzio.
+
 ## Branch strategy
 
-Il branch `main` deve essere sempre funzionante e compilabile. Tutte le modifiche passano tramite branch separati e successiva Pull Request (PR).
+Il branch `main` deve essere sempre funzionante e compilabile. Nessuno può fare commit diretti su `main`. Tutte le modifiche passano tramite branch separati e successiva Pull Request (PR).
 
 Utilizziamo i seguenti prefissi per nominare i nostri branch:
 
 ```text
 main                 sempre funzionante, nessun commit diretto
-feature/<>           nuova funzionalità o task
-fix/<>               correzione di un bug
-docs/<>              modifiche esclusive alla documentazione
-refactor/<>          modifiche al codice che non alterano le funzionalità (es. pulizia)
+feature/<cosa>       nuova funzionalità o task
+fix/<cosa>           correzione di un bug
+docs/<cosa>          modifiche esclusive alla documentazione
+refactor/<cosa>      modifiche al codice che non alterano le funzionalità (es. pulizia)
 ```
 
 > **Esempi validi per NordFacility:** `feature/filtro-interventi-tecnico`, `fix/calcolo-priorita-ticket`, `docs/api-storage-documenti`, `refactor/ottimizzazione-query-edifici`.
