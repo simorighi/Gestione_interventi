@@ -10,22 +10,16 @@
 domanda, non deciso a intuito. Ciò che resta ambiguo non è un requisito: è
 una domanda da porre al cliente.*
 
-> **Esempio** (Smart Maintenance): "Se un intervento è assegnato a più
-> tecnici e uno solo lo segna come risolto, si chiude per tutti o resta
-> aperto per gli altri?" — non è specificato nella richiesta, va chiesto.
+> **Esempio** (Smart Maintenance): "i?" — 
 
 ## Domande aperte
 
 | # | Domanda | Perché è ambigua | Impatto se cambia la risposta |
 |---|---|---|---|
-| 1 | | | |
-| 2 | | | |
-| 3 | | | |
-| 4 | | | |
-| 5 | | | |
+| 1 |Se un intervento è assegnato a più tecnici e uno solo lo segna come risolto, si chiude per tutti o resta aperto per gli altri | | non è specificato nella richiesta, va chiesto. | si sa come gestire gli interventi assegnati a più tecnici-
+| 2 | Configurazioni modificabili senza intervenire sul codice sorgente. | non indica bene quali configurazione vuole che siano modificabili| si riesce ad avere già la conoscienza su cui l'utente può fare dei cambiamenti e su cosa no|
+| 3 | Se un segnalatore apre una richiesta può decidere di cambiare tecnico se non gli va bene?| non specificato | |
 
-*Aggiungete righe quante servono: tre sono il minimo per considerare la
-richiesta letta con attenzione, non un limite.*
 
 ## Come nascono le domande
 
