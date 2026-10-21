@@ -10,7 +10,7 @@ interface LayoutProps {
 export function Layout({ children, currentPage, onPageChange }: LayoutProps) {
   return (
     <div className="d-flex">
-      <Sidebar currentPage={currentPage} onPageChange={onPageChange} />
+      <Sidebar  currentPage={currentPage} onPageChange={onPageChange} />
       <div className="flex-grow-1">
         <Navbar bg="light" className="px-4">
           <Navbar.Brand>Smart Maintenance</Navbar.Brand>

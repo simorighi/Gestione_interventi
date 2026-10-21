@@ -4,6 +4,9 @@ import { Dashboard } from './pages/Dashboard';
 import { ListaSegnalazioni } from './pages/ListaSegnalazioni';
 import { NuovaSegnalazione } from './pages/NuovaSegnalazione';
 import { DettaglioSegnalazione } from './pages/DettaglioSegnalazione';
+import { Tecnici } from './pages/Tecnici';
+import { Impostazioni } from './pages/Impostazioni';
+import { Edifici } from './pages/Edifici';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
@@ -35,11 +38,11 @@ function App() {
           />
         );
       case 'tecnici':
-        return <div className="p-4"><h2>Tecnici</h2><p>Pagina anagrafica in costruzione...</p></div>;
-      case 'edifici':
-        return <div className="p-4"><h2>Edifici</h2><p>Pagina anagrafica in costruzione...</p></div>;
+        return <Tecnici />;
       case 'impostazioni':
-        return <div className="p-4"><h2>Impostazioni</h2><p>Pagina in costruzione...</p></div>;
+        return <Impostazioni />;
+        case'edifici':
+        return <Edifici />;
       default:
         return <Dashboard />;
     }
