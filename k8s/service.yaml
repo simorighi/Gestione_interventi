@@ -1,0 +1,30 @@
+# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+#
+# Un Service per componente esposto agli altri componenti (o all'Ingress).
+# Duplicate rinominando k8s/service-<componente>.yaml.
+apiVersion: v1
+kind: Service
+metadata:
+  # ISTRUZIONE: per convenzione, nome-del-componente + "-svc" (usato anche
+  # nell'ingress.yaml e negli envFrom di altri componenti che lo chiamano).
+  # ESEMPIO (Smart Maintenance): backend-svc
+  name: <nome-componente>-svc
+spec:
+  selector:
+    # ATTENZIONE: deve essere IDENTICA alla label in
+    # deployment.yaml → template.metadata.labels. Se non combacia,
+    # 'kubectl get endpoints <nome-svc>' resta vuoto: il Service esiste ma
+    # non parla con nessun Pod.
+    app: <nome-componente>
+  ports:
+    - port: <porta-service>          # porta su cui il Service è raggiungibile
+      targetPort: <porta-container>  # porta reale del container (containerPort)
+  # ISTRUZIONE: type di default è ClusterIP — raggiungibile solo dentro il
+  # cluster. È la scelta giusta per backend e database. Non cambiatelo senza
+  # un motivo esplicito.
+  # type: ClusterIP
+
+# Checklist prima di 'apply':
+# [ ] selector.app è identico alla label del Deployment corrispondente
+# [ ] targetPort è la porta su cui il processo ascolta davvero
+# [ ] dopo 'apply', 'kubectl get endpoints <nome-svc>' NON è vuoto

@@ -1,0 +1,49 @@
+# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+#
+# Un Deployment per componente (backend, frontend, ecc.). Duplicate questo
+# file rinominandolo k8s/deployment-<componente>.yaml per ogni componente che
+# containerizzate.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # ISTRUZIONE: nome del Deployment, univoco nel cluster.
+  # ESEMPIO (Smart Maintenance): backend
+  name: <nome-componente>
+spec:
+  # ISTRUZIONE: quante copie identiche. 2 basta per vedere il rolling update
+  # e il self-healing; 1 è accettabile se siete indietro sui tempi.
+  replicas: <numero-repliche>
+  selector:
+    matchLabels:
+      # ATTENZIONE: questa label deve essere IDENTICA, carattere per
+      # carattere, a quella in template.metadata.labels qui sotto, e a quella
+      # nel selector del Service (service.yaml). È l'unico collegamento tra
+      # Deployment, Pod e Service: se non combacia, il Service non trova
+      # nessun Pod, anche se tutto sembra "Running".
+      app: <nome-componente>
+  template:
+    metadata:
+      labels:
+        # ESEMPIO (Smart Maintenance): app: backend
+        app: <nome-componente>
+    spec:
+      containers:
+        - name: <nome-componente>
+          # ISTRUZIONE: immagine e tag pubblicati sul registry di MicroK8s al
+          # Passo 1. Mai "latest".
+          # ESEMPIO: localhost:32000/nordfacility/backend:1.0.0
+          image: localhost:32000/<team>/<nome-componente>:<tag-versione>
+          ports:
+            - containerPort: <porta>   # deve combaciare con EXPOSE nel Dockerfile
+          # ISTRUZIONE: qui, al Passo 3, aggiungerete i riferimenti a
+          # ConfigMap e Secret. Scommentate e adattate:
+          # envFrom:
+          #   - configMapRef:
+          #       name: <nome-componente>-config
+          #   - secretRef:
+          #       name: <nome-componente>-secret
+
+# Checklist prima di 'apply':
+# [ ] l'immagine e il tag esistono davvero sul registry (docker push fatto)
+# [ ] la label in matchLabels, in template.metadata.labels e nel Service è la stessa
+# [ ] containerPort combacia con la porta reale del processo

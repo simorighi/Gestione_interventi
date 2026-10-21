@@ -1,0 +1,45 @@
+# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+#
+# Richiede l'addon 'ingress' abilitato su MicroK8s
+# (microk8s enable ingress) — senza, questo manifest si applica ma
+# 'kubectl get ingress' non mostra mai un ADDRESS e nessuna richiesta arriva
+# a destinazione.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  # ESEMPIO (Smart Maintenance): nordfacility-ingress
+  name: <team>-ingress
+spec:
+  rules:
+    # ISTRUZIONE: un host a piacere, non serve un DNS reale — basta
+    # aggiungerlo al file hosts della postazione puntato a 127.0.0.1 per
+    # provarlo dal browser o con curl --resolve.
+    # ESEMPIO: nordfacility.local
+    - host: <host-team>.local
+      http:
+        paths:
+          # ISTRUZIONE: un blocco 'path' per componente esposto. Se avete
+          # containerizzato solo il backend, tenete solo il primo blocco e
+          # instradate tutto lì (path: /).
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: <nome-componente-backend>-svc
+                port:
+                  number: <porta-service-backend>
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: <nome-componente-frontend>-svc
+                port:
+                  number: <porta-service-frontend>
+
+# Checklist:
+# [ ] addon 'ingress' abilitato su MicroK8s (microk8s status)
+# [ ] i nomi dei Service in 'backend.service.name' esistono davvero
+#     (kubectl get svc)
+# [ ] 'kubectl get ingress' mostra un ADDRESS dopo l'apply
+# [ ] l'host scelto è raggiungibile (voce nel file hosts della postazione,
+#     o curl --resolve)

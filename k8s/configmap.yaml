@@ -1,0 +1,25 @@
+# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+#
+# Parametri NON sensibili del componente: URL, porte interne, flag, livelli
+# di log. Se un valore è una password, un token o una chiave, non appartiene
+# qui: va nel Secret (secret-example.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # ESEMPIO (Smart Maintenance): backend-config
+  name: <nome-componente>-config
+data:
+  # ISTRUZIONE: una riga per parametro. Le chiavi diventano nomi di variabili
+  # d'ambiente se collegate con envFrom nel Deployment.
+  # ESEMPIO (Smart Maintenance):
+  #   LOG_LEVEL: "info"
+  #   API_BASE_PATH: "/api"
+  <NOME_PARAMETRO_1>: "<valore>"
+  <NOME_PARAMETRO_2>: "<valore>"
+
+# Checklist:
+# [ ] nessun valore qui è una credenziale o un segreto (va nel Secret)
+# [ ] i nomi delle chiavi sono quelli che il codice del componente si aspetta
+#     come variabili d'ambiente
+# [ ] dopo ogni modifica, ricordate 'kubectl apply' — il cluster non si
+#     accorge da solo di un file cambiato sul disco
