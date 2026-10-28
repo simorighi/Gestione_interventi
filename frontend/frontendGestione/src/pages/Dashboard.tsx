@@ -1,7 +1,25 @@
+import { useState, useEffect } from 'react';
 import { Card, Row, Col, Table, Badge, Button } from 'react-bootstrap';
-import { segnalazioni } from '../data/mockData';
+// ❌ ELIMINATO: import { segnalazioni } from '../data/mockData';
 
 export function Dashboard() {
+  // ✅ AGGIUNTO: Stato per contenere i dati in arrivo dal backend
+  const [segnalazioni, setSegnalazioni] = useState<any[]>([]);
+
+  // ✅ AGGIUNTO: Chiamata HTTP reale al backend
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/segnalazioni`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Errore nella risposta del server");
+        return res.json();
+      })
+      .then((data) => {
+        // Se i dati esistono, li salviamo nello stato
+        if (Array.isArray(data)) setSegnalazioni(data);
+      })
+      .catch((err) => console.error("ERRORE DI CONNESSIONE:", err));
+  }, []);
+
   const stats = {
     aperte: segnalazioni.filter(s => s.stato === 'segnalato').length,
     inLavorazione: segnalazioni.filter(s => s.stato === 'in_lavorazione').length,
