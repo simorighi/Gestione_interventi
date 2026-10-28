@@ -31,7 +31,26 @@ Database: <Supabase (PostgreSQL)>
 
 ## Come si esegue
 
-per ora si esegue con **npm run dev** ma non c'è ancora interfaccia, solo swagger
+Per avviare backend e frontend, usa due terminali:
+
+```powershell
+# Terminale 1: API Next.js (http://localhost:3000)
+cd web
+npm install
+npm run dev
+```
+
+```powershell
+# Terminale 2: interfaccia React (http://localhost:5173)
+cd frontend/frontendGestione
+npm install
+npm run dev
+```
+
+In sviluppo Vite inoltra le richieste `/api` al backend su `http://localhost:3000`.
+Per usare un altro indirizzo, imposta `VITE_BACKEND_URL` nell'ambiente del frontend.
+La dashboard mostra lo stato della connessione all'API e al database tramite
+`GET /api/health`; il backend deve avere `DATABASE_URL` configurata nel file `web/.env`.
 
 ## Struttura del repository
 
@@ -46,6 +65,13 @@ Gestione_interventi/
 │   ├── data-model.md             modello dei dati
 │   ├── backlog.md                backlog iniziale
 │   └── domande-cliente.md        domande aperte per il cliente
+├── frontend/
+│   └── frontendGestione/         interfaccia React + Vite
+│       └── src/
+│           ├── components/       componenti condivisi
+│           ├── pages/            schermate dell'applicazione
+│           ├── services/api.ts   chiamate al backend
+│           └── data/             dati mock delle schermate non ancora collegate
 └── web/                          backend (Next.js + Prisma + PostgreSQL)
     ├── package.json
     ├── next.config.ts
@@ -82,5 +108,5 @@ questo file deve restare uno specchio fedele di cosa c'è nel repository.*
 
 ## Stato del progetto
 
-Creato un backend inziale con un swagger che permette di connettersi al database e fare delle chiamate.
-
+Il backend espone le API REST e Swagger. La dashboard frontend controlla la connessione
+con `GET /api/health`; le altre schermate usano ancora dati mock.
