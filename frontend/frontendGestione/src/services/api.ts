@@ -14,20 +14,44 @@ function isHealthResponse(value: unknown): value is HealthResponse {
 }
 
 export async function getHealth(signal: AbortSignal): Promise<HealthResponse> {
-  const response = await fetch('/api/health', {
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-    signal,
-  });
-  const body: unknown = await response.json();
-
-  if (!isHealthResponse(body)) {
-    throw new Error('Il backend ha restituito una risposta non valida.');
+  const startedAt = performance.now();
+  if (import.meta.env.DEV) {
+    console.debug('[api] controllo connessione avviato', { path: '/api/health' });
   }
 
-  if (!response.ok && body.status !== 'error') {
-    throw new Error(`Il controllo del backend è fallito (HTTP ${response.status}).`);
-  }
+  try {
+    const response = await fetch('/api/health', {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal,
+    });
+    const body: unknown = await response.json();
 
-  return body;
+    if (!isHealthResponse(body)) {
+      throw new Error('Il backend ha restituito una risposta non valida.');
+    }
+
+    if (!response.ok && body.status !== 'error') {
+      throw new Error(`Il controllo del backend è fallito (HTTP ${response.status}).`);
+    }
+
+    if (import.meta.env.DEV) {
+      console.debug('[api] risposta controllo connessione', {
+        status: response.status,
+        backend: body.status,
+        database: body.database,
+        durationMs: Math.round(performance.now() - startedAt),
+      });
+    }
+    return body;
+  } catch (error) {
+    if (import.meta.env.DEV) {
+      console.warn('[api] controllo connessione fallito', {
+        durationMs: Math.round(performance.now() - startedAt),
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+        aborted: signal.aborted,
+      });
+    }
+    throw error;
+  }
 }

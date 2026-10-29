@@ -17,12 +17,45 @@ export function route<Ctx = unknown>(handler: Handler<Ctx>): Handler<Ctx> {
   return async (request, ctx) => {
     // Fuori dal try: il segnale di interruzione del prerender non va intercettato.
     await connection();
+    const startedAt = performance.now();
+    const method = request.method;
+    const path = new URL(request.url).pathname;
+
     try {
-      return await handler(request, ctx);
+      const response = await handler(request, ctx);
+      if (process.env.NODE_ENV === "development") {
+        console.debug("[api] richiesta completata", {
+          method,
+          path,
+          status: response.status,
+          durationMs: Math.round(performance.now() - startedAt),
+        });
+      }
+      return response;
     } catch (err) {
-      return toErrorResponse(err);
+      const response = toErrorResponse(err);
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[api] richiesta fallita", {
+          method,
+          path,
+          status: response.status,
+          durationMs: Math.round(performance.now() - startedAt),
+          error: describeError(err),
+        });
+      }
+      return response;
     }
   };
+}
+
+function describeError(err: unknown) {
+  if (err instanceof AppError) return { name: err.name, code: err.code };
+  if (err instanceof ZodError) return { name: err.name, code: "VALIDATION_ERROR" };
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    return { name: err.name, code: err.code };
+  }
+  if (err instanceof Error) return { name: err.name };
+  return { name: "UnknownError" };
 }
 
 function toErrorResponse(err: unknown): Response {
