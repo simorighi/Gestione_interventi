@@ -72,6 +72,7 @@ model Luogo {
   via          String?        @db.VarChar(150)
   citta        String?        @db.VarChar(100)
   cap          String?        @db.VarChar(10)
+  archivedAt   DateTime?      @map("archived_at") @db.Timestamptz(6)
   padreId      Int?           @map("fk_luogo_padre")
   padre        Luogo?         @relation("GerarchiaLuoghi", fields: [padreId], references: [id], onDelete: Restrict, onUpdate: NoAction, map: "fk_luogo_luogo_padre")
   figli        Luogo[]        @relation("GerarchiaLuoghi")
@@ -108,9 +109,12 @@ model Stato {
   nome         String         @unique(map: "uq_stato_nome") @db.VarChar(50)
   ordine       Int            @unique(map: "uq_stato_ordine")
   isFinale     Boolean        @default(false) @map("is_finale")
+  archivedAt   DateTime?      @map("archived_at") @db.Timestamptz(6)
   segnalazioni Segnalazione[]
   storicoVerso StoricoStato[] @relation("StatoNuovo")
   storicoDa    StoricoStato[] @relation("StatoPrecedente")
+  transizioniDa StatoTransizione[] @relation("StatoTransizioneDa")
+  transizioniA  StatoTransizione[] @relation("StatoTransizioneA")
 
   @@map("stato")
 }
@@ -122,6 +126,7 @@ model Segnalazione {
   dataCreazione       DateTime        @default(now()) @map("data_creazione") @db.Timestamptz(6)
   dataAggiornamento   DateTime        @default(now()) @updatedAt @map("data_aggiornamento") @db.Timestamptz(6)
   dataChiusura        DateTime?       @map("data_chiusura") @db.Timestamptz(6)
+  archivedAt          DateTime?       @map("archived_at") @db.Timestamptz(6)
   segnalatoreId       Int             @map("fk_segnalatore")
   luogoId             Int             @map("fk_luogo")
   categoriaId         Int             @map("fk_categoria")
@@ -152,6 +157,7 @@ model Segnalazione {
 model Assegnazione {
   id               Int          @id(map: "pk_assegnazione") @default(autoincrement()) @map("id_assegnazione")
   dataAssegnazione DateTime     @default(now()) @map("data_assegnazione") @db.Timestamptz(6)
+  archivedAt       DateTime?    @map("archived_at") @db.Timestamptz(6)
   segnalazioneId   Int          @map("fk_segnalazione")
   tecnicoId        Int          @map("fk_tecnico")
   responsabileId   Int          @map("fk_responsabile")
@@ -169,6 +175,7 @@ model Intervento {
   descrizioneIntervento String        @map("descrizione_intervento")
   dataInizio            DateTime      @default(now()) @map("data_inizio") @db.Timestamptz(6)
   dataFine              DateTime?     @map("data_fine") @db.Timestamptz(6)
+  archivedAt            DateTime?     @map("archived_at") @db.Timestamptz(6)
   esito                 String?       @db.VarChar(100)
   segnalazioneId        Int           @map("fk_segnalazione")
   tecnicoId             Int           @map("fk_tecnico")
@@ -186,6 +193,7 @@ model NotaTecnica {
   id              Int          @id(map: "pk_nota_tecnica") @default(autoincrement()) @map("id_nota")
   testo           String
   dataInserimento DateTime     @default(now()) @map("data_inserimento") @db.Timestamptz(6)
+  archivedAt      DateTime?    @map("archived_at") @db.Timestamptz(6)
   segnalazioneId  Int          @map("fk_segnalazione")
   autoreId        Int          @map("fk_autore")
   interventoId    Int?         @map("fk_intervento")
@@ -204,6 +212,7 @@ model Allegato {
   tipoMime        String       @map("tipo_mime") @db.VarChar(100)
   dimensione      BigInt
   dataCaricamento DateTime     @default(now()) @map("data_caricamento") @db.Timestamptz(6)
+  archivedAt      DateTime?   @map("archived_at") @db.Timestamptz(6)
   segnalazioneId  Int          @map("fk_segnalazione")
   caricatoDaId    Int          @map("fk_caricato_da")
   interventoId    Int?         @map("fk_intervento")
@@ -230,6 +239,17 @@ model StoricoStato {
 
   @@index([segnalazioneId, dataCambio], map: "ix_storico_stato_segnalazione")
   @@map("storico_stato")
+}
+
+model StatoTransizione {
+  id              Int      @id @default(autoincrement()) @map("id_transizione")
+  daStatoId       Int      @map("fk_stato_da")
+  aStatoId        Int      @map("fk_stato_a")
+  daStato         Stato    @relation("StatoTransizioneDa", fields: [daStatoId], references: [id], onDelete: Restrict)
+  aStato          Stato    @relation("StatoTransizioneA", fields: [aStatoId], references: [id], onDelete: Restrict)
+
+  @@unique([daStatoId, aStatoId], map: "uq_stato_transizione")
+  @@map("stato_transizione")
 }
 
 /// Log immutabile: non va mai aggiornato né cancellato dall'applicazione.
@@ -263,5 +283,4 @@ model SuggerimentoAi {
 
   @@map("suggerimento_ai")
 }
-
 

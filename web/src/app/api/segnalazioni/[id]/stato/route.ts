@@ -9,7 +9,7 @@ import { cambiaStatoSchema, idParam } from "@/server/validation/segnalazioni";
  * PATCH /api/segnalazioni/:id/stato — CAMBIA LO STATO DI UNA SEGNALAZIONE
  *
  * Chi può chiamarla: Tecnico, Responsabile manutenzione, Amministratore
- *   (header obbligatorio `x-user-id`).
+ *   (Bearer token Supabase obbligatorio).
  * Body JSON:
  *   { statoId, motivo? }   ← statoId obbligatorio, motivo facoltativo (finisce nello storico)
  *

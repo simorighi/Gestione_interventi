@@ -51,6 +51,8 @@ In sviluppo Vite inoltra le richieste `/api` al backend su `http://localhost:300
 Per usare un altro indirizzo, imposta `VITE_BACKEND_URL` nell'ambiente del frontend.
 La dashboard mostra lo stato della connessione all'API e al database tramite
 `GET /api/health`; il backend deve avere `DATABASE_URL` configurata nel file `web/.env`.
+La configurazione di Supabase Auth, la migrazione richiesta e le funzionalità
+collegate dal frontend sono descritte in [docs/frontend-backend-crud.md](docs/frontend-backend-crud.md).
 
 ## Struttura del repository
 
@@ -64,14 +66,15 @@ Gestione_interventi/
 │   ├── architecture-v1.md        componenti, responsabilità, diagramma
 │   ├── data-model.md             modello dei dati
 │   ├── backlog.md                backlog iniziale
-│   └── domande-cliente.md        domande aperte per il cliente
+│   ├── domande-cliente.md       domande aperte per il cliente
+│   └── frontend-backend-crud.md stato integrazione e roadmap CRUD UI/API
 ├── frontend/
 │   └── frontendGestione/         interfaccia React + Vite
 │       └── src/
 │           ├── components/       componenti condivisi
 │           ├── pages/            schermate dell'applicazione
 │           ├── services/api.ts   chiamate al backend
-│           └── data/             dati mock delle schermate non ancora collegate
+│           └── data/             dati di esempio legacy
 └── web/                          backend (Next.js + Prisma + PostgreSQL)
     ├── package.json
     ├── next.config.ts
@@ -108,5 +111,6 @@ questo file deve restare uno specchio fedele di cosa c'è nel repository.*
 
 ## Stato del progetto
 
-Il backend espone le API REST e Swagger. La dashboard frontend controlla la connessione
-con `GET /api/health`; le altre schermate usano ancora dati mock.
+Il backend espone le API REST e Swagger; le schermate operative usano il client
+API autenticato per leggere e modificare i dati. È necessario configurare
+Supabase Auth e applicare la migrazione SQL descritta nella documentazione.

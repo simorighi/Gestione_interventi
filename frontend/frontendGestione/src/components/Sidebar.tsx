@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Nav, Offcanvas, Button } from 'react-bootstrap';
-import { Database, Wrench, UserRound, House, Settings, Menu } from 'lucide-react';
+import { Database, Wrench, UserRound, House, Settings, Menu, Activity } from 'lucide-react';
 
 interface SidebarProps {
   currentPage: string;
@@ -12,6 +12,7 @@ export function Sidebar({ currentPage, onPageChange }: SidebarProps) {
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Database },
+    { id: 'stato-dati', label: 'Stato e dati', icon: Activity },
     { id: 'segnalazioni', label: 'Segnalazioni', icon: Wrench },
     { id: 'tecnici', label: 'Tecnici', icon: UserRound },
     { id: 'edifici', label: 'Edifici', icon: House },

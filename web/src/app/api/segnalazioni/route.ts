@@ -13,7 +13,7 @@ import {
 /**
  * GET /api/segnalazioni — ELENCO DELLE SEGNALAZIONI
  *
- * Chi può chiamarla: chiunque (nessun header richiesto).
+ * Richiede una sessione Supabase valida.
  * Filtri opzionali nella query string, combinabili tra loro:
  *   statoId, categoriaId, luogoId, tecnicoId, dal, al (date), q (testo), page, pageSize
  * Esempio: /api/segnalazioni?statoId=1&q=luci&page=1&pageSize=10
@@ -23,6 +23,7 @@ import {
  *   - total: quante segnalazioni rispettano i filtri in totale (serve per la paginazione)
  */
 export const GET = route(async (request) => {
+  await getCurrentUser(request);
   // 1. Legge i parametri dall'URL e li valida (es. statoId=abc → errore 400).
   //    zod converte anche i tipi: "1" diventa il numero 1, "2026-10-01" una data.
   const filtri = filtriSegnalazioniSchema.parse(searchParams(request));
@@ -35,7 +36,7 @@ export const GET = route(async (request) => {
  * POST /api/segnalazioni — CREA UNA NUOVA SEGNALAZIONE
  *
  * Chi può chiamarla: Segnalatore, Responsabile manutenzione, Amministratore
- *   (header obbligatorio `x-user-id`; il segnalatore registrato è l'utente dell'header).
+ *   (Bearer token obbligatorio; il segnalatore registrato è l'utente autenticato).
  * Body JSON:
  *   { titolo, descrizione, luogoId, categoriaId, prioritaPropostaId }   ← tutti obbligatori
  *
@@ -45,7 +46,7 @@ export const GET = route(async (request) => {
  * Risposte: 201 creata · 400 dati non validi · 401 manca l'utente · 403 ruolo non ammesso
  */
 export const POST = route(async (request) => {
-  // 1. Chi sta facendo la richiesta? (legge x-user-id e carica l'utente con i suoi ruoli)
+  // 1. Chi sta facendo la richiesta? (verifica la sessione Supabase e carica i ruoli applicativi)
   const user = await getCurrentUser(request);
 
   // 2. Ha il permesso? Se non ha almeno uno di questi ruoli → 403.

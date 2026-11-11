@@ -1,154 +1,157 @@
-import { useState } from 'react';
-import { Card, Table, Badge, Button, Row, Col, Form, Modal, ListGroup, Tabs, Tab } from 'react-bootstrap';
-import { edifici, type Edificio } from '../data/mockData';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Alert, Badge, Button, Card, Form, Modal, Spinner, Table } from 'react-bootstrap';
+import { useAuth } from '../contexts/AuthContext';
+import {
+  archiveLuogo,
+  createLuogo,
+  getAllLuoghi,
+  updateLuogo,
+  type LuogoApi,
+  type LuogoInput,
+} from '../services/api';
 
 export function Edifici() {
-  const [edificioSelezionato, setEdificioSelezionato] = useState<Edificio | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const { profile } = useAuth();
+  const [places, setPlaces] = useState<LuogoApi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [attempt, setAttempt] = useState(0);
+  const [selected, setSelected] = useState<LuogoApi | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const canEdit = profile?.ruoli.some((role) => ['Responsabile manutenzione', 'Amministratore'].includes(role)) ?? false;
+  const canArchive = profile?.ruoli.includes('Amministratore') ?? false;
 
-  const handleVisualizzaDettaglio = (edificio: Edificio) => {
-    setEdificioSelezionato(edificio);
-    setShowModal(true);
+  useEffect(() => {
+    const controller = new AbortController();
+    getAllLuoghi()
+      .then((result) => {
+        if (!controller.signal.aborted) setPlaces(result);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Caricamento luoghi non riuscito.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [attempt]);
+
+  const save = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const type = String(form.get('tipo')) as LuogoInput['tipo'];
+    const parentValue = String(form.get('padreId') ?? '');
+    const payload: LuogoInput = {
+      nome: String(form.get('nome') ?? ''),
+      tipo: type,
+      via: String(form.get('via') ?? ''),
+      citta: String(form.get('citta') ?? ''),
+      cap: String(form.get('cap') ?? ''),
+      padreId: parentValue ? Number(parentValue) : null,
+    };
+    setSaving(true);
+    setError('');
+    try {
+      if (selected) await updateLuogo(selected.id, payload);
+      else await createLuogo(payload);
+      setShowForm(false);
+      setSelected(null);
+      setNotice('Luogo salvato nel database.');
+      setLoading(true);
+      setAttempt((value) => value + 1);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Salvataggio luogo non riuscito.');
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const getTipoBadge = (tipo: string) => {
-    const variants: Record<string, string> = {
-      uffici: 'primary',
-      magazzino: 'warning',
-      locale_tecnico: 'danger',
-      altro: 'secondary'
-    };
-    return <Badge bg={variants[tipo] || 'secondary'}>{tipo.replace('_', ' ').toUpperCase()}</Badge>;
+  const archive = async (place: LuogoApi) => {
+    if (!window.confirm(`Archiviare "${place.nome}"? Le voci figlie e le segnalazioni associate devono essere prima archiviate.`)) return;
+    setSaving(true);
+    try {
+      await archiveLuogo(place.id);
+      setNotice('Luogo archiviato.');
+      setLoading(true);
+      setAttempt((value) => value + 1);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Archiviazione luogo non riuscita.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const activePlaces = places.filter((place) => !place.archivedAt);
+  const parentCandidates = activePlaces.filter((place) =>
+    place.id !== selected?.id && place.tipo !== 'impianto',
+  );
+  const openNew = () => {
+    setSelected(null);
+    setShowForm(true);
   };
 
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gestione Edifici e Impianti</h2>
-        <Button variant="primary">+ Nuovo Edificio</Button>
+        <div><h2 className="mb-1">Luoghi e impianti</h2><p className="text-muted mb-0">Gerarchia dei luoghi letta dal database.</p></div>
+        {canEdit && <Button onClick={openNew}>Nuovo luogo</Button>}
       </div>
-
-      {/* Riepilogo Rapido */}
-      <Row className="mb-4">
-        <Col md={4}>
-          <Card className="border-start border-4 border-primary">
-            <Card.Body>
-              <h6 className="text-muted">Totale Edifici</h6>
-              <h2 className="mb-0">{edifici.length}</h2>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="border-start border-4 border-info">
-            <Card.Body>
-              <h6 className="text-muted">Totale Impianti</h6>
-              <h2 className="mb-0">{edifici.reduce((acc, e) => acc + e.impianti.length, 0)}</h2>
-            </Card.Body>
-          </Card>
-        </Col>
-        <Col md={4}>
-          <Card className="border-start border-4 border-warning">
-            <Card.Body>
-              <h6 className="text-muted">Interventi Attivi su Edifici</h6>
-              <h2 className="mb-0">{edifici.reduce((acc, e) => acc + e.interventiAttivi, 0)}</h2>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Tabella Edifici */}
+      {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+      {notice && <Alert variant="success" dismissible onClose={() => setNotice('')}>{notice}</Alert>}
       <Card>
         <Card.Body>
-          <Table striped bordered hover responsive className="mb-0">
-            <thead className="table-dark">
-              <tr>
-                <th>ID</th>
-                <th>Nome Edificio</th>
-                <th>Indirizzo</th>
-                <th>Tipo</th>
-                <th>N. Impianti</th>
-                <th>Interventi Attivi</th>
-                <th>Azioni</th>
-              </tr>
-            </thead>
-            <tbody>
-              {edifici.map(edificio => (
-                <tr key={edificio.id}>
-                  <td>{edificio.id}</td>
-                  <td><strong>{edificio.nome}</strong></td>
-                  <td>{edificio.indirizzo}</td>
-                  <td>{getTipoBadge(edificio.tipo)}</td>
-                  <td className="text-center">{edificio.impianti.length}</td>
-                  <td className="text-center">
-                    <Badge bg={edificio.interventiAttivi > 0 ? 'warning' : 'success'} text={edificio.interventiAttivi > 0 ? 'dark' : 'white'}>
-                      {edificio.interventiAttivi}
-                    </Badge>
-                  </td>
-                  <td>
-                    <Button variant="outline-primary" size="sm" onClick={() => handleVisualizzaDettaglio(edificio)}>
-                      Dettagli & Impianti
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
+          {loading ? <div className="text-center p-4"><Spinner animation="border" /></div> : (
+            <Table responsive striped hover>
+              <thead><tr><th>Nome</th><th>Tipo</th><th>Luogo padre</th><th>Indirizzo</th><th>Stato</th><th>Azioni</th></tr></thead>
+              <tbody>
+                {places.map((place) => (
+                  <tr key={place.id} className={place.archivedAt ? 'text-muted' : ''}>
+                    <td>{place.padreId ? '↳ ' : ''}{place.nome}</td>
+                    <td><Badge bg="info">{place.tipo}</Badge></td>
+                    <td>{place.padre?.nome ?? '—'}</td>
+                    <td>{[place.via, place.citta, place.cap].filter(Boolean).join(', ') || '—'}</td>
+                    <td>{place.archivedAt ? 'Archiviato' : 'Attivo'}</td>
+                    <td className="d-flex gap-2">
+                      {canEdit && !place.archivedAt && <Button size="sm" variant="outline-primary" onClick={() => { setSelected(place); setShowForm(true); }}>Modifica</Button>}
+                      {canArchive && !place.archivedAt && <Button size="sm" variant="outline-danger" disabled={saving} onClick={() => void archive(place)}>Archivia</Button>}
+                    </td>
+                  </tr>
+                ))}
+                {!places.length && <tr><td colSpan={6}>Nessun luogo presente.</td></tr>}
+              </tbody>
+            </Table>
+          )}
         </Card.Body>
       </Card>
-
-      {/* Modale Dettaglio Edificio */}
-      <Modal show={showModal} onHide={() => setShowModal(false)} size="lg">
-        <Modal.Header closeButton>
-          <Modal.Title>{edificioSelezionato?.nome}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          {edificioSelezionato && (
-            <Tabs defaultActiveKey="impianti" className="mb-3">
-              <Tab eventKey="info" title="Informazioni">
-                <Row className="mt-3">
-                  <Col md={6}><strong>Indirizzo:</strong> {edificioSelezionato.indirizzo}</Col>
-                  <Col md={6}><strong>Tipo:</strong> {getTipoBadge(edificioSelezionato.tipo)}</Col>
-                  <Col md={6} className="mt-2"><strong>Interventi Attivi:</strong> {edificioSelezionato.interventiAttivi}</Col>
-                  <Col md={6} className="mt-2"><strong>Totale Impianti:</strong> {edificioSelezionato.impianti.length}</Col>
-                </Row>
-              </Tab>
-              
-              <Tab eventKey="impianti" title="Impianti Installati">
-                <Table hover className="mt-3">
-                  <thead>
-                    <tr>
-                      <th>ID</th>
-                      <th>Nome Impianto</th>
-                      <th>Categoria</th>
-                      <th>Ultima Manutenzione</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {edificioSelezionato.impianti.map(impianto => (
-                      <tr key={impianto.id}>
-                        <td>{impianto.id}</td>
-                        <td>{impianto.nome}</td>
-                        <td><Badge bg="info">{impianto.categoria}</Badge></td>
-                        <td>{impianto.ultimaManutenzione}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              </Tab>
-
-              <Tab eventKey="storico" title="Storico Interventi">
-                <div className="mt-3 text-center text-muted p-4">
-                  <p>Qui verrà caricato lo storico completo degli interventi effettuati su questo edificio.</p>
-                  <Button variant="outline-primary" size="sm">Vedi Storico Completo</Button>
-                </div>
-              </Tab>
-            </Tabs>
-          )}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowModal(false)}>Chiudi</Button>
-          <Button variant="primary">Modifica Edificio</Button>
-        </Modal.Footer>
+      <Modal show={showForm} onHide={() => !saving && setShowForm(false)} centered>
+        <Form onSubmit={save}>
+          <Modal.Header closeButton><Modal.Title>{selected ? 'Modifica luogo' : 'Nuovo luogo'}</Modal.Title></Modal.Header>
+          <Modal.Body>
+            <Form.Group className="mb-3"><Form.Label>Nome</Form.Label><Form.Control name="nome" required minLength={2} maxLength={150} defaultValue={selected?.nome} /></Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Tipo</Form.Label>
+              <Form.Select name="tipo" defaultValue={selected?.tipo ?? 'edificio'}>
+                <option value="edificio">Edificio</option><option value="area">Area / piano / stanza</option><option value="impianto">Impianto</option>
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3">
+              <Form.Label>Luogo padre (obbligatorio per area e impianto)</Form.Label>
+              <Form.Select name="padreId" defaultValue={selected?.padreId ?? ''}>
+                <option value="">Nessuno / edificio principale</option>
+                {parentCandidates.map((place) => <option key={place.id} value={place.id}>{place.nome} ({place.tipo})</option>)}
+              </Form.Select>
+            </Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Via</Form.Label><Form.Control name="via" maxLength={150} defaultValue={selected?.via ?? ''} /></Form.Group>
+            <Form.Group className="mb-3"><Form.Label>Città</Form.Label><Form.Control name="citta" maxLength={100} defaultValue={selected?.citta ?? ''} /></Form.Group>
+            <Form.Group><Form.Label>CAP</Form.Label><Form.Control name="cap" maxLength={10} defaultValue={selected?.cap ?? ''} /></Form.Group>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => setShowForm(false)} disabled={saving}>Annulla</Button>
+            <Button type="submit" disabled={saving}>{saving ? <Spinner size="sm" /> : 'Salva'}</Button>
+          </Modal.Footer>
+        </Form>
       </Modal>
     </div>
   );

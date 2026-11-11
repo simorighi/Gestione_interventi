@@ -17,19 +17,6 @@ import type {
 /** Nome dello stato in cui nasce ogni segnalazione (deve esistere nella tabella `stato`). */
 export const STATO_INIZIALE = "Segnalato";
 
-/**
- * MACCHINA A STATI (dal backlog): per ogni stato, gli stati in cui si può passare.
- * Per cambiare il workflow basta modificare questa mappa.
- * I nomi devono coincidere esattamente con la colonna `nome` della tabella `stato`.
- */
-const TRANSIZIONI: Record<string, readonly string[]> = {
-  Segnalato: ["Preso in carico"],
-  "Preso in carico": ["In lavorazione"],
-  "In lavorazione": ["Sospeso", "Risolto"],
-  Sospeso: ["In lavorazione"],
-  Risolto: [], // stato finale: da qui non si esce
-};
-
 // ---------------------------------------------------------------------------
 // Cosa caricare insieme alla segnalazione (le "include" di Prisma = le JOIN in SQL)
 // ---------------------------------------------------------------------------
@@ -52,6 +39,7 @@ const perLista = {
 const perDettaglio = {
   ...perLista,
   assegnazioni: {
+    where: { archivedAt: null },
     include: {
       tecnico: { include: { utente: utentePubblico } }, // tecnico → i suoi dati anagrafici
       responsabile: utentePubblico, // chi ha fatto l'assegnazione
@@ -62,8 +50,12 @@ const perDettaglio = {
     include: { statoPrecedente: true, statoNuovo: true, modificatoDa: utentePubblico },
     orderBy: { dataCambio: "asc" }, // in ordine cronologico, dalla creazione a oggi
   },
-  noteTecniche: { include: { autore: utentePubblico }, orderBy: { dataInserimento: "asc" } },
-  allegati: true,
+  noteTecniche: {
+    where: { archivedAt: null },
+    include: { autore: utentePubblico },
+    orderBy: { dataInserimento: "asc" },
+  },
+  allegati: { where: { archivedAt: null } },
 } satisfies Prisma.SegnalazioneInclude;
 
 // ---------------------------------------------------------------------------
@@ -78,6 +70,7 @@ export async function listSegnalazioni(f: FiltriSegnalazioni) {
   // Costruisce la WHERE. Un filtro `undefined` viene ignorato da Prisma,
   // quindi i filtri non passati nell'URL semplicemente non si applicano.
   const where: Prisma.SegnalazioneWhereInput = {
+    archivedAt: null,
     statoId: f.statoId,
     categoriaId: f.categoriaId,
     luogoId: f.luogoId,
@@ -116,7 +109,7 @@ export async function listSegnalazioni(f: FiltriSegnalazioni) {
  * Carica una segnalazione con tutte le relazioni; se non esiste → 404.
  */
 export async function getSegnalazione(id: number) {
-  const segnalazione = await db.segnalazione.findUnique({ where: { id }, include: perDettaglio });
+  const segnalazione = await db.segnalazione.findFirst({ where: { id, archivedAt: null }, include: perDettaglio });
   if (!segnalazione) throw notFound("Segnalazione non trovata");
   return segnalazione;
 }
@@ -134,12 +127,16 @@ export async function creaSegnalazione(input: CreaSegnalazioneInput, user: Curre
   return db.$transaction(async (tx) => {
     // 1. Recupera lo stato "Segnalato" (serve il suo id). Se manca è un errore di configurazione → 500.
     const statoIniziale = await tx.stato.findUnique({ where: { nome: STATO_INIZIALE } });
-    if (!statoIniziale) throw new Error(`Stato "${STATO_INIZIALE}" mancante nella tabella stato`);
+    if (!statoIniziale || statoIniziale.archivedAt) throw new Error(`Stato "${STATO_INIZIALE}" mancante o archiviato nella tabella stato`);
 
     // 2. La categoria deve esistere ed essere attiva. (Luogo e priorità inesistenti invece
     //    vengono bloccati dalle foreign key del DB → 400 "Riferimento a un record inesistente".)
     const categoria = await tx.categoria.findUnique({ where: { id: input.categoriaId } });
     if (!categoria?.attiva) throw badRequest("Categoria inesistente o non attiva");
+    const luogo = await tx.luogo.findFirst({ where: { id: input.luogoId, archivedAt: null } });
+    if (!luogo) throw badRequest("Luogo inesistente o archiviato");
+    const priorita = await tx.priorita.findUnique({ where: { id: input.prioritaPropostaId } });
+    if (!priorita) throw badRequest("Priorità inesistente");
 
     // 3. Crea la segnalazione e, nella stessa istruzione, la prima riga di storico_stato
     //    (stato precedente vuoto → "Segnalato"). Il segnalatore è l'utente che fa la richiesta.
@@ -182,16 +179,20 @@ export async function creaSegnalazione(input: CreaSegnalazioneInput, user: Curre
 export async function cambiaStato(id: number, input: CambiaStatoInput, user: CurrentUser) {
   return db.$transaction(async (tx) => {
     // 1. Carica la segnalazione con il suo stato attuale; se non esiste → 404.
-    const corrente = await tx.segnalazione.findUnique({ where: { id }, include: { stato: true } });
+    const corrente = await tx.segnalazione.findFirst({ where: { id, archivedAt: null }, include: { stato: true } });
     if (!corrente) throw notFound("Segnalazione non trovata");
 
     // 2. Lo stato di destinazione deve esistere → altrimenti 400.
     const nuovo = await tx.stato.findUnique({ where: { id: input.statoId } });
-    if (!nuovo) throw badRequest("Stato di destinazione inesistente");
+    if (!nuovo || nuovo.archivedAt) throw badRequest("Stato di destinazione inesistente o archiviato");
 
     // 3. Il passaggio è consentito dalla macchina a stati? Se no → 400,
     //    e nei details indichiamo quali stati sarebbero ammessi.
-    const ammessi = TRANSIZIONI[corrente.stato.nome] ?? [];
+    const transizioni = await tx.statoTransizione.findMany({
+      where: { daStatoId: corrente.statoId, aStato: { archivedAt: null } },
+      include: { aStato: true },
+    });
+    const ammessi = transizioni.map(({ aStato }) => aStato.nome);
     if (!ammessi.includes(nuovo.nome)) {
       throw badRequest(`Transizione non ammessa: "${corrente.stato.nome}" → "${nuovo.nome}"`, {
         ammessi,
@@ -240,6 +241,11 @@ export async function cambiaStato(id: number, input: CambiaStatoInput, user: Cur
  * Usata da GET /api/segnalazioni/:id
  * Dato il nome di uno stato, restituisce i nomi degli stati raggiungibili da lì.
  */
-export function transizioniAmmesse(nomeStato: string) {
-  return TRANSIZIONI[nomeStato] ?? [];
+export async function transizioniAmmesse(statoId: number) {
+  const transitions = await db.statoTransizione.findMany({
+    where: { daStatoId: statoId, aStato: { archivedAt: null } },
+    include: { aStato: true },
+    orderBy: { aStato: { ordine: "asc" } },
+  });
+  return transitions.map(({ aStato }) => aStato.nome);
 }

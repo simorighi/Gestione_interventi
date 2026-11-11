@@ -5,9 +5,10 @@ const ENDPOINTS = [
   ["GET", "/api/stati", "stati del workflow"],
   ["GET", "/api/luoghi", "luoghi (gerarchia)"],
   ["GET", "/api/segnalazioni", "lista con filtri e paginazione"],
-  ["POST", "/api/segnalazioni", "crea segnalazione (header x-user-id)"],
+  ["POST", "/api/segnalazioni", "crea segnalazione (Bearer token Supabase)"],
   ["GET", "/api/segnalazioni/:id", "dettaglio + storico"],
-  ["PATCH", "/api/segnalazioni/:id/stato", "cambio stato (header x-user-id)"],
+  ["PATCH", "/api/segnalazioni/:id/stato", "cambio stato (Bearer token Supabase)"],
+  ["GET", "/api/docs", "Swagger UI con tutte le route documentate"],
 ] as const;
 
 export default function Home() {

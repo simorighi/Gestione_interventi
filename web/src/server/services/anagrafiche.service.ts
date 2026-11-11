@@ -29,7 +29,7 @@ export function listPriorita() {
  * `isFinale = true` indica lo stato che chiude la segnalazione (Risolto).
  */
 export function listStati() {
-  return db.stato.findMany({ orderBy: { ordine: "asc" } });
+  return db.stato.findMany({ where: { archivedAt: null }, orderBy: { ordine: "asc" } });
 }
 
 /**
@@ -39,6 +39,7 @@ export function listStati() {
  */
 export function listLuoghi() {
   return db.luogo.findMany({
+    where: { archivedAt: null },
     orderBy: [{ padreId: { sort: "asc", nulls: "first" } }, { nome: "asc" }],
   });
 }

@@ -1,121 +1,136 @@
-import { useState } from 'react';
-import { Card, Form, Button, Row, Col, Alert } from 'react-bootstrap';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Alert, Button, Card, Col, Form, Row, Spinner } from 'react-bootstrap';
+import {
+  creaSegnalazione,
+  getCategorie,
+  getLuoghi,
+  getPriorita,
+  type CategoriaApi,
+  type LuogoApi,
+  type PrioritaApi,
+} from '../services/api';
 
 interface NuovaSegnalazioneProps {
   onAnnulla: () => void;
 }
 
 export function NuovaSegnalazione({ onAnnulla }: NuovaSegnalazioneProps) {
-  const [descrizione, setDescrizione] = useState('');
-  const [showAiSuggestion, setShowAiSuggestion] = useState(false);
+  const [places, setPlaces] = useState<LuogoApi[]>([]);
+  const [categories, setCategories] = useState<CategoriaApi[]>([]);
+  const [priorities, setPriorities] = useState<PrioritaApi[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
 
-  // Simulazione AI: quando l'utente scrive più di 20 caratteri, mostra il suggerimento
-  const handleDescrizioneChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDescrizione(e.target.value);
-    if (e.target.value.length > 20) setShowAiSuggestion(true);
-    else setShowAiSuggestion(false);
-  };
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.all([
+      getLuoghi(controller.signal),
+      getCategorie(controller.signal),
+      getPriorita(controller.signal),
+    ])
+      .then(([nextPlaces, nextCategories, nextPriorities]) => {
+        setPlaces(nextPlaces);
+        setCategories(nextCategories);
+        setPriorities(nextPriorities);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Errore caricamento dati.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
 
-  const accettaSuggerimento = () => {
-    // Qui in futuro aggiorneremo i campi categoria e priorità
-    alert('Suggerimento AI accettato! (Logica da implementare)');
-    setShowAiSuggestion(false);
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    const form = new FormData(event.currentTarget);
+    try {
+      await creaSegnalazione({
+        titolo: String(form.get('titolo') ?? ''),
+        descrizione: String(form.get('descrizione') ?? ''),
+        luogoId: Number(form.get('luogoId')),
+        categoriaId: Number(form.get('categoriaId')),
+        prioritaPropostaId: Number(form.get('prioritaPropostaId')),
+      });
+      onAnnulla();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Salvataggio non riuscito.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-  <div>
-    <h2 className="mb-4">Nuova Segnalazione</h2>
-    <Card>
-      <Card.Body>
-        <Form>
-          {/* Prima riga: Edificio e Categoria */}
-          <Row className="mb-3 g-3">
-            <Col xs={12} md={6}>
-              <Form.Group>
-                <Form.Label>Edificio / Luogo</Form.Label>
-                <Form.Select>
-                  <option>Seleziona edificio...</option>
-                  <option>Edificio A - Uffici</option>
-                  <option>Edificio B - Magazzino</option>
+    <div>
+      <h2 className="mb-4">Nuova Segnalazione</h2>
+      {error && <Alert variant="danger">{error}</Alert>}
+      {loading ? (
+        <div className="text-center p-4"><Spinner animation="border" /></div>
+      ) : (
+        <Card>
+          <Card.Body>
+            <Form onSubmit={submit}>
+              <Row className="g-3 mb-3">
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>Luogo</Form.Label>
+                    <Form.Select name="luogoId" required defaultValue="">
+                      <option value="" disabled>Seleziona luogo</option>
+                      {places.map((place) => (
+                        <option key={place.id} value={place.id}>
+                          {place.padreId ? '↳ ' : ''}{place.nome} ({place.tipo})
+                        </option>
+                      ))}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+                <Col xs={12} md={6}>
+                  <Form.Group>
+                    <Form.Label>Categoria</Form.Label>
+                    <Form.Select name="categoriaId" required defaultValue="">
+                      <option value="" disabled>Seleziona categoria</option>
+                      {categories.map((category) => <option key={category.id} value={category.id}>{category.nome}</option>)}
+                    </Form.Select>
+                  </Form.Group>
+                </Col>
+              </Row>
+              <Form.Group className="mb-3">
+                <Form.Label>Titolo</Form.Label>
+                <Form.Control name="titolo" required minLength={3} maxLength={200} />
+              </Form.Group>
+              <Form.Group className="mb-3">
+                <Form.Label>Descrizione</Form.Label>
+                <Form.Control
+                  as="textarea"
+                  name="descrizione"
+                  required
+                  minLength={10}
+                  maxLength={5000}
+                  rows={5}
+                />
+              </Form.Group>
+              <Form.Group className="mb-4">
+                <Form.Label>Priorità proposta</Form.Label>
+                <Form.Select name="prioritaPropostaId" required defaultValue="">
+                  <option value="" disabled>Seleziona priorità</option>
+                  {priorities.map((priority) => <option key={priority.id} value={priority.id}>{priority.nome}</option>)}
                 </Form.Select>
               </Form.Group>
-            </Col>
-            <Col xs={12} md={6}>
-              <Form.Group>
-                <Form.Label>Categoria</Form.Label>
-                <Form.Select>
-                  <option>Seleziona categoria...</option>
-                  <option>Idraulica</option>
-                  <option>Elettrica</option>
-                  <option>Climatizzazione</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-          </Row>
-
-          {/* Descrizione */}
-          <Form.Group className="mb-3">
-            <Form.Label>Descrizione del problema</Form.Label>
-            <Form.Control 
-              as="textarea" 
-              rows={4} 
-              placeholder="Descrivi il guasto o l'anomalia..." 
-              value={descrizione}
-              onChange={handleDescrizioneChange}
-            />
-          </Form.Group>
-
-          {/* Box Suggerimento AI (Punto 10 del PDF) */}
-          {showAiSuggestion && (
-            <Alert variant="info" className="mb-3">
-              <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-                <div className="flex-grow-1">
-                  <strong>🤖 Suggerimento AI:</strong> Basato sulla descrizione, suggeriamo Categoria: <b>Idraulica</b>, Priorità: <b>Alta</b>.
-                </div>
-                <div className="d-flex gap-2 flex-shrink-0">
-                  <Button variant="success" size="sm" onClick={accettaSuggerimento}>
-                    ✓ Accetta
-                  </Button>
-                  <Button variant="outline-secondary" size="sm" onClick={() => setShowAiSuggestion(false)}>
-                    Ignora
-                  </Button>
-                </div>
+              <div className="d-flex gap-2">
+                <Button type="submit" disabled={saving || !places.length || !categories.length || !priorities.length}>
+                  {saving && <Spinner size="sm" className="me-2" />}
+                  Crea segnalazione
+                </Button>
+                <Button type="button" variant="secondary" onClick={onAnnulla} disabled={saving}>Annulla</Button>
               </div>
-            </Alert>
-          )}
-
-          {/* Priorità */}
-          <Form.Group className="mb-3">
-            <Form.Label>Priorità</Form.Label>
-            <Form.Select>
-              <option value="bassa">Bassa</option>
-              <option value="media">Media</option>
-              <option value="alta">Alta</option>
-              <option value="urgente">Urgente</option>
-            </Form.Select>
-          </Form.Group>
-
-          {/* Upload Foto */}
-          <Form.Group className="mb-4">
-            <Form.Label>Allega Fotografie</Form.Label>
-            <Form.Control type="file" multiple />
-            <Form.Text className="text-muted">
-              Puoi caricare più immagini (JPG, PNG)
-            </Form.Text>
-          </Form.Group>
-
-          {/* Pulsanti Azione */}
-          <div className="d-flex flex-column flex-md-row gap-2">
-            <Button variant="primary" type="button" className="flex-grow-1 flex-md-grow-0">
-              Invia Segnalazione
-            </Button>
-            <Button variant="secondary" onClick={onAnnulla} className="flex-grow-1 flex-md-grow-0">
-              Annulla
-            </Button>
-          </div>
-        </Form>
-      </Card.Body>
-    </Card>
-  </div>
-);
+            </Form>
+          </Card.Body>
+        </Card>
+      )}
+    </div>
+  );
 }

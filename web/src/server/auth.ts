@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "./db";
-import { forbidden, unauthorized } from "./errors";
+import { AppError, forbidden, unauthorized } from "./errors";
 
 export const RUOLI = {
   SEGNALATORE: "Segnalatore",
@@ -14,30 +14,63 @@ export type NomeRuolo = (typeof RUOLI)[keyof typeof RUOLI];
 export type CurrentUser = {
   id: number;
   email: string;
+  nome: string;
+  cognome: string;
   ruoli: NomeRuolo[];
 };
 
-/**
- * SEGNAPOSTO DI SVILUPPO — da sostituire con un'autenticazione vera
- * (sessione/JWT, es. Auth.js) prima di qualsiasi rilascio.
- *
- * Oggi l'utente corrente è identificato dall'header `x-user-id`, così le API
- * si possono provare con curl / REST client usando gli utenti del seed.
- */
 export async function getCurrentUser(request: Request): Promise<CurrentUser> {
-  const raw = request.headers.get("x-user-id");
-  const id = Number(raw);
-  if (!raw || !Number.isInteger(id)) throw unauthorized();
+  const token = request.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) throw unauthorized();
 
-  const utente = await db.utente.findUnique({
-    where: { id },
-    select: { id: true, email: true, attivo: true, ruoli: { select: { ruolo: true } } },
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new AppError(503, "AUTH_NOT_CONFIGURED", "Autenticazione Supabase non configurata");
+  }
+
+  let authResponse: Response;
+  try {
+    authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new AppError(503, "AUTH_PROVIDER_UNAVAILABLE", "Servizio di autenticazione non raggiungibile");
+  }
+  if (!authResponse.ok) throw unauthorized();
+
+  const authUser: unknown = await authResponse.json();
+  if (
+    typeof authUser !== "object" ||
+    authUser === null ||
+    !("email" in authUser) ||
+    typeof authUser.email !== "string"
+  ) {
+    throw unauthorized();
+  }
+
+  const utente = await db.utente.findFirst({
+    where: { email: { equals: authUser.email, mode: "insensitive" } },
+    select: {
+      id: true,
+      email: true,
+      nome: true,
+      cognome: true,
+      attivo: true,
+      ruoli: { select: { ruolo: true } },
+    },
   });
   if (!utente || !utente.attivo) throw unauthorized();
 
   return {
     id: utente.id,
     email: utente.email,
+    nome: utente.nome,
+    cognome: utente.cognome,
     ruoli: utente.ruoli.map((r) => r.ruolo.nome as NomeRuolo),
   };
 }

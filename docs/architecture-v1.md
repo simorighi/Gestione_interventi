@@ -13,7 +13,7 @@
 
 | Componente | Risponde di | Non risponde di | 
 | ----- | ----- | ----- | 
-| **Web Frontend (React/Next.js)** | Rendering delle interfacce utente, gestione dello stato lato client, interazione con l'utente (form segnalazioni, dashboard tecnici). | Validazione definitiva dei dati, accesso diretto e non mediato al database. | 
+| **Web Frontend (React + Vite)** | Rendering delle interfacce, sessione Supabase Auth, gestione dello stato client e chiamate HTTP al backend. | Validazione definitiva dei dati, accesso diretto e non mediato al database. |
 | **API / Backend (Next.js)** | Ricezione richieste HTTP, validazione robusta dei payload (tramite **Zod**), orchestrazione della logica di business (es. `SuggerimentoAI`, `Assegnazione`), garanzia delle transazioni per `StoricoStato` e `LogAudit`. | Memorizzazione fisica dei file allegati (solo metadata in DB), erogazione del database. | 
 | **Data Access Layer (Prisma)** | Introspezione dello schema (`db:pull`), generazione di un client type-safe TypeScript, conversione delle query in SQL nativo tramite `pg`. | Definizione della struttura delle tabelle (gestita a monte su Supabase). | 
 | **Database (PostgreSQL / Supabase)** | Persistenza sicura e strutturata (entità utente/tecnico, gerarchie di `Luogo`, integrità referenziale su interventi e allegati). | Logica applicativa, validazione di regole di business complesse non esprimibili in DDL. | 
@@ -22,8 +22,9 @@
 
 ```mermaid
 flowchart LR
-  Utente -->|HTTPS / UI| Frontend[Frontend Next.js]
-  Frontend -->|HTTP/JSON header x-user-id| API[API Backend Next.js]
+  Utente -->|HTTPS / UI| Frontend[Frontend React + Vite]
+  Frontend -->|HTTP/JSON Bearer token Supabase| API[API Backend Next.js]
+  API -->|verifica token e provisioning account| Auth[Supabase Auth]
   API -->|Zod Validation| API
   API -->|TCP/IP| Prisma[Prisma ORM Client]
   Prisma -->|SQL / Protocollo pg| DB[(Database PostgreSQL)]
@@ -42,7 +43,11 @@ flowchart LR
 
 ## Fuori dal perimetro
 
-*   **Autenticazione Crittografica Completa (Fase attuale):** Nonostante il DB preveda `passwordHash` e `UtenteRuolo`, attualmente l'identificazione è simulata tramite l'header `x-user-id`. L'implementazione di sessioni sicure (es. JWT o NextAuth) è posticipata.
+*   **Autenticazione:** Il frontend usa Supabase Auth; il backend verifica il token e associa l'email all'utente applicativo attivo e ai suoi ruoli. Il primo account amministrativo deve essere creato anche in Supabase Auth. Le API amministrative che creano utenti richiedono la chiave service-role solo lato server.
 *   **Motore di Intelligenza Artificiale:** La tabella `SuggerimentoAi` immagazzina l'esito e i dati suggeriti, ma l'engine LLM che elabora la descrizione per derivare `categoriaSuggerita` e `prioritaSuggerita` opera fuori dal perimetro diretto del backend di base (es. chiamata API esterna).
 *   **Storage Fisico dei File:** La tabella `Allegato` memorizza il `percorsoStorage` e il `tipoMime`, ma il salvataggio fisico dei blob non avviene sul DB relazionale (si presume un bucket S3 o lo storage di Supabase).
 *   **Migrazioni Prisma Standard:** Il database è gestito esternamente. I comandi `prisma migrate` sono espressamente vietati in favore di `prisma db pull`.
+
+La configurazione locale, il bootstrap del primo amministratore e la migrazione
+per archiviazione logica e workflow sono descritti in
+[docs/frontend-backend-crud.md](frontend-backend-crud.md).
