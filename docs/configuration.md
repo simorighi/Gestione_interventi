@@ -19,12 +19,12 @@
 ## Dove vive la configurazione, per ambiente
 
 ### DEV
-* **Posizione**: File `web/.env` letto all'avvio del processo locale o via Docker (`docker run --env-file`).
-* **Caratteristiche**: Il file `.env` non è versionato ed è escluso da Git tramite `.gitignore`. Punta al database Supabase di sviluppo/test con log in modalità `debug` e `CORS_ORIGIN=http://localhost:5173`.
+* **Posizione**: Copiare `config/dev.env` in `web/.env`; il file `web/.env` è letto all'avvio del processo locale o via Docker (`docker run --env-file`).
+* **Caratteristiche**: `config/dev.env` è un template versionato senza credenziali reali. Il file `web/.env` non è versionato ed è escluso da Git tramite `.gitignore`. Usa il database Supabase di sviluppo, log `debug` e `CORS_ORIGIN=http://localhost:5173`.
 
 ### TEST
-* **Posizione**: Variabili d'ambiente definite nel manifest di Deployment o tramite `Secret` e `ConfigMap` di Kubernetes (es. MicroK8s).
-* **Caratteristiche**: `DATABASE_URL` è iniettata in modo sicuro tramite un Secret K8s (valori codificati in base64). `CORS_ORIGIN` è impostata sull'URL dell'ambiente di test (es. `https://test.nordfacility.it`).
+* **Posizione**: `config/test.env` documenta i valori attesi; nel deployment le variabili sono definite tramite `Secret` e `ConfigMap` di Kubernetes (es. MicroK8s).
+* **Caratteristiche**: `DATABASE_URL` è iniettata in modo sicuro tramite un Secret K8s. `CORS_ORIGIN` è impostata sull'URL dell'ambiente di test (es. `https://test.nordfacility.it`).
 
 ## Secret
 
@@ -48,3 +48,14 @@ Durante la sessione di laboratorio è stato introdotto e analizzato un guasto di
 - **Verifica**: È stato verificato il valore effettivo della variabile dentro il container/pod con il comando:
   ```bash
   docker exec -it backend-container env | grep CORS_ORIGIN
+  ```
+
+- **Causa**: il valore di `CORS_ORIGIN` nel pod TEST era quello dello sviluppo
+  (`http://localhost:5173`) e quindi non coincideva con l'origine
+  `https://test.nordfacility.it` inviata dal browser. Il backend non aggiungeva
+  l'header CORS alla risposta.
+- **Correzione**: aggiornare il `ConfigMap`/manifest TEST con
+  `CORS_ORIGIN=https://test.nordfacility.it`, riavviare il deployment per
+  ricreare i pod e verificare nuovamente il valore con il comando precedente.
+  Infine ripetere una richiesta da Swagger UI o dal frontend TEST e controllare
+  che la risposta contenga `Access-Control-Allow-Origin` con l'origine attesa.
