@@ -1,45 +1,47 @@
-# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.1
 #
-# Richiede l'addon 'ingress' abilitato su MicroK8s
-# (microk8s enable ingress) — senza, questo manifest si applica ma
-# 'kubectl get ingress' non mostra mai un ADDRESS e nessuna richiesta arriva
-# a destinazione.
+# Richiede l'addon 'ingress' di MicroK8s (microk8s enable ingress).
+#
+# Flusso:  browser ──► Ingress (nordfacility.local)
+#                        ├─ /api/* ──► web-svc      ──► Pod web (Next.js) ──► DB Supabase
+#                        └─ /      ──► frontend-svc ──► Pod frontend (nginx, SPA)
+#
+# Il frontend gira nel browser: le sue fetch('/api/...') tornano all'Ingress
+# (stesso host, quindi niente CORS) e vengono girate al backend. Solo il
+# backend conosce e usa DATABASE_URL.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  # ESEMPIO (Smart Maintenance): nordfacility-ingress
-  name: <team>-ingress
+  name: nordfacility-ingress
 spec:
+  # Classe dell'ingress controller NGINX installato dall'addon MicroK8s.
+  ingressClassName: public
   rules:
-    # ISTRUZIONE: un host a piacere, non serve un DNS reale — basta
-    # aggiungerlo al file hosts della postazione puntato a 127.0.0.1 per
-    # provarlo dal browser o con curl --resolve.
-    # ESEMPIO: nordfacility.local
-    - host: <host-team>.local
+    # Host locale: aggiungere "127.0.0.1 nordfacility.local" al file hosts,
+    # oppure usare curl --resolve nordfacility.local:80:127.0.0.1
+    - host: nordfacility.local
       http:
         paths:
-          # ISTRUZIONE: un blocco 'path' per componente esposto. Se avete
-          # containerizzato solo il backend, tenete solo il primo blocco e
-          # instradate tutto lì (path: /).
+          # Il path più specifico vince: /api va al backend...
           - path: /api
             pathType: Prefix
             backend:
               service:
-                name: <nome-componente-backend>-svc
+                name: web-svc
                 port:
-                  number: <porta-service-backend>
+                  number: 80
+          # ...tutto il resto al frontend.
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: <nome-componente-frontend>-svc
+                name: frontend-svc
                 port:
-                  number: <porta-service-frontend>
+                  number: 80
 
 # Checklist:
-# [ ] addon 'ingress' abilitato su MicroK8s (microk8s status)
-# [ ] i nomi dei Service in 'backend.service.name' esistono davvero
-#     (kubectl get svc)
-# [ ] 'kubectl get ingress' mostra un ADDRESS dopo l'apply
-# [ ] l'host scelto è raggiungibile (voce nel file hosts della postazione,
-#     o curl --resolve)
+# [ ] addon 'ingress' abilitato (microk8s status)
+# [ ] 'microk8s kubectl get svc' mostra web-svc e frontend-svc
+# [ ] 'microk8s kubectl get ingress' mostra un ADDRESS
+# [ ] curl http://nordfacility.local/            -> HTML della SPA
+# [ ] curl http://nordfacility.local/api/health  -> {"status":"ok",...}

@@ -1,0 +1,52 @@
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+#
+# Componente frontend/frontendGestione: SPA React servita da nginx.
+# Immagine costruita da frontend/frontendGestione/Dockerfile.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      # Identica a template.metadata.labels e al selector di service-frontend.yaml.
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost:32000/nordfacility/frontend:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080   # = EXPOSE 8080 / listen 8080 in nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+
+# Nessuna ConfigMap/Secret: il frontend non ha credenziali e non conosce
+# l'indirizzo del backend (usa /api relativo, instradato dall'Ingress).
+#
+# Checklist prima di 'apply':
+# [ ] immagine pushata: curl http://localhost:32000/v2/nordfacility/frontend/tags/list
+# [x] label "app: frontend" uguale in matchLabels, template e Service
+# [x] containerPort 8080 = porta di nginx

@@ -1,25 +1,23 @@
-# Progetto: <nome progetto>  ·  Team: <nome team>  ·  Data: <gg/mm/aaaa>  ·  v0.1
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
 #
-# Parametri NON sensibili del componente: URL, porte interne, flag, livelli
-# di log. Se un valore è una password, un token o una chiave, non appartiene
-# qui: va nel Secret (secret-example.yaml).
+# Parametri NON sensibili del componente web/. Diventano variabili
+# d'ambiente del container tramite envFrom (deployment-web.yaml).
+# Le credenziali (DATABASE_URL) stanno nel Secret, non qui.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  # ESEMPIO (Smart Maintenance): backend-config
-  name: <nome-componente>-config
+  name: web-config
+  labels:
+    app: web
 data:
-  # ISTRUZIONE: una riga per parametro. Le chiavi diventano nomi di variabili
-  # d'ambiente se collegate con envFrom nel Deployment.
-  # ESEMPIO (Smart Maintenance):
-  #   LOG_LEVEL: "info"
-  #   API_BASE_PATH: "/api"
-  <NOME_PARAMETRO_1>: "<valore>"
-  <NOME_PARAMETRO_2>: "<valore>"
+  # Next.js ascolta su questa interfaccia/porta: 0.0.0.0 perché il Service
+  # deve raggiungere il Pod; 3000 = containerPort.
+  HOSTNAME: "0.0.0.0"
+  PORT: "3000"
+  # Niente telemetria verso Vercel dal cluster.
+  NEXT_TELEMETRY_DISABLED: "1"
 
 # Checklist:
-# [ ] nessun valore qui è una credenziale o un segreto (va nel Secret)
-# [ ] i nomi delle chiavi sono quelli che il codice del componente si aspetta
-#     come variabili d'ambiente
-# [ ] dopo ogni modifica, ricordate 'kubectl apply' — il cluster non si
-#     accorge da solo di un file cambiato sul disco
+# [x] nessun valore qui è una credenziale
+# [x] i nomi delle chiavi sono quelli letti da Next.js
+# [ ] dopo ogni modifica: apply + rollout restart deploy/web
