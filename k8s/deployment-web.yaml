@@ -1,0 +1,73 @@
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+#
+# Componente web/ (Next.js 16 + Prisma 7): serve sia le pagine sia le API
+# (/api/*). Immagine costruita da web/Dockerfile e pubblicata su
+# localhost:32000 (vedi passaggi.md, Passo 1).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  # 2 copie: bastano per vedere rolling update e self-healing.
+  replicas: 2
+  selector:
+    matchLabels:
+      # Deve essere identica a template.metadata.labels e al selector di
+      # service-web.yaml.
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          # Stesso tag usato in docker build/push. Mai "latest".
+          image: localhost:32000/nordfacility/web:1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000   # = EXPOSE 3000 nel Dockerfile
+          # Parametri da ConfigMap, credenziali (DATABASE_URL) da Secret:
+          # niente valori scritti a mano qui.
+          envFrom:
+            - configMapRef:
+                name: web-config
+            - secretRef:
+                name: web-secret
+          # Il dev server compila le pagine alla prima richiesta: si concede
+          # tempo all'avvio prima di considerare il Pod rotto.
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24     # fino a 2 minuti per partire
+          # Pronto a ricevere traffico solo se anche il database risponde.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Vivo = il processo ascolta. Non dipende dal database, così un
+          # problema su Supabase non fa riavviare i Pod in loop.
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 1Gi            # next dev consuma parecchia memoria
+
+# Checklist prima di 'apply':
+# [x] immagine e tag pushati: curl http://localhost:32000/v2/nordfacility/web/tags/list
+# [x] label "app: web" uguale in matchLabels, template e Service
+# [x] containerPort 3000 = porta reale del processo (PORT nella ConfigMap)
+# [x] ConfigMap web-config e Secret web-secret applicati PRIMA del Deployment

@@ -1,0 +1,20 @@
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+#
+# Service del frontend. Usato dall'Ingress per il percorso "/".
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  labels:
+    app: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: frontend
+  ports:
+    - name: http
+      port: 80            # porta del Service
+      targetPort: http    # = containerPort 8080
+
+# Checklist dopo 'apply':
+# [ ] 'microk8s kubectl get endpoints frontend-svc' mostra 2 indirizzi :8080

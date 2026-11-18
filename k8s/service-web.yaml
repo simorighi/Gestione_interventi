@@ -1,0 +1,23 @@
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+#
+# Service del componente web/. Usato dall'Ingress (ingress.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+  labels:
+    app: web
+spec:
+  # ClusterIP (default): raggiungibile solo dentro il cluster; dall'esterno
+  # si passa dall'Ingress o da 'kubectl port-forward'.
+  type: ClusterIP
+  selector:
+    # Identica alla label dei Pod in deployment-web.yaml.
+    app: web
+  ports:
+    - name: http
+      port: 80            # porta del Service
+      targetPort: http    # = containerPort 3000 (porta con nome nel Deployment)
+
+# Checklist dopo 'apply':
+# [ ] 'microk8s kubectl get endpoints web-svc' mostra 2 indirizzi :3000

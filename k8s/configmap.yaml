@@ -1,0 +1,23 @@
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+#
+# Parametri NON sensibili del componente web/. Diventano variabili
+# d'ambiente del container tramite envFrom (deployment-web.yaml).
+# Le credenziali (DATABASE_URL) stanno nel Secret, non qui.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+  labels:
+    app: web
+data:
+  # Next.js ascolta su questa interfaccia/porta: 0.0.0.0 perché il Service
+  # deve raggiungere il Pod; 3000 = containerPort.
+  HOSTNAME: "0.0.0.0"
+  PORT: "3000"
+  # Niente telemetria verso Vercel dal cluster.
+  NEXT_TELEMETRY_DISABLED: "1"
+
+# Checklist:
+# [x] nessun valore qui è una credenziale
+# [x] i nomi delle chiavi sono quelli letti da Next.js
+# [ ] dopo ogni modifica: apply + rollout restart deploy/web
