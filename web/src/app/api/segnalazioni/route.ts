@@ -13,7 +13,9 @@ import {
 /**
  * GET /api/segnalazioni — ELENCO DELLE SEGNALAZIONI
  *
- * Chi può chiamarla: chiunque (nessun header richiesto).
+ * Chi può chiamarla: qualunque utente autenticato. Ognuno vede solo le segnalazioni di sua
+ *   competenza: Responsabile/Amministratore tutte, Tecnico quelle assegnate a lui,
+ *   Segnalatore quelle che ha creato (filtro nella query, vedi filtroVisibilita).
  * Filtri opzionali nella query string, combinabili tra loro:
  *   statoId, categoriaId, luogoId, tecnicoId, dal, al (date), q (testo), page, pageSize
  * Esempio: /api/segnalazioni?statoId=1&q=luci&page=1&pageSize=10
@@ -23,12 +25,14 @@ import {
  *   - total: quante segnalazioni rispettano i filtri in totale (serve per la paginazione)
  */
 export const GET = route(async (request) => {
+  const user = await getCurrentUser(request);
+
   // 1. Legge i parametri dall'URL e li valida (es. statoId=abc → errore 400).
   //    zod converte anche i tipi: "1" diventa il numero 1, "2026-10-01" una data.
   const filtri = filtriSegnalazioniSchema.parse(searchParams(request));
 
   // 2. Il service costruisce la query e interroga il database.
-  return json(await listSegnalazioni(filtri));
+  return json(await listSegnalazioni(filtri, user));
 });
 
 /**

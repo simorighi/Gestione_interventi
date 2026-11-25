@@ -53,6 +53,8 @@ export const openApiSpec = {
       "clicca **Authorize** e incollalo. Le richieste successive inviano `Authorization: Bearer <token>`.",
   },
   servers: [{ url: "/api" }],
+  // Tutti gli endpoint richiedono il token, salvo quelli con `security: []`.
+  security: [{ utenteCorrente: [] }],
   tags: [
     { name: "Sistema" },
     { name: "Autenticazione" },
@@ -92,6 +94,7 @@ export const openApiSpec = {
       get: {
         tags: ["Sistema"],
         summary: "Stato dell'app e della connessione al database",
+        security: [],
         responses: {
           "200": { description: "App e database raggiungibili" },
           "503": { description: "Database non raggiungibile" },
@@ -102,6 +105,7 @@ export const openApiSpec = {
       post: {
         tags: ["Autenticazione"],
         summary: "Accesso con email e password: restituisce il token",
+        security: [],
         requestBody: {
           required: true,
           content: {
@@ -143,6 +147,9 @@ export const openApiSpec = {
       get: {
         tags: ["Segnalazioni"],
         summary: "Lista segnalazioni con filtri e paginazione",
+        description:
+          "Ognuno vede solo le segnalazioni di competenza: Responsabile/Amministratore tutte, " +
+          "Tecnico quelle assegnate a lui, Segnalatore quelle create da lui.",
         parameters: [
           queryInt("statoId", "Filtra per stato"),
           queryInt("categoriaId", "Filtra per categoria"),
@@ -209,7 +216,7 @@ export const openApiSpec = {
         parameters: [idPath("Id della segnalazione")],
         responses: {
           "200": { description: "Segnalazione, con `transizioniAmmesse` (stati raggiungibili da quello attuale)" },
-          "404": errore("Segnalazione non trovata"),
+          "404": errore("Segnalazione non trovata o non di competenza dell'utente"),
         },
       },
     },

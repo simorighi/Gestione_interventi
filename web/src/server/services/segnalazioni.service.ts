@@ -2,7 +2,7 @@ import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "../db";
 import { badRequest, conflict, notFound } from "../errors";
-import type { CurrentUser } from "../auth";
+import { haRuolo, RUOLI, type CurrentUser } from "../auth";
 import { STATO_INIZIALE, transizioniAmmesse } from "../workflow";
 import type {
   CambiaStatoInput,
@@ -19,9 +19,30 @@ import type {
 // Cosa caricare insieme alla segnalazione (le "include" di Prisma = le JOIN in SQL)
 // ---------------------------------------------------------------------------
 
-// Quando includiamo un utente prendiamo solo questi campi:
-// così password_hash non finisce mai in una risposta API.
-const utentePubblico = { select: { id: true, nome: true, cognome: true, email: true } };
+// Quando includiamo un utente prendiamo solo questi campi: password_hash non
+// finisce mai in una risposta API, e nemmeno l'email (dato personale che a chi
+// guarda una segnalazione non serve; ognuno vede la propria con /api/auth/me).
+const utentePubblico = { select: { id: true, nome: true, cognome: true } };
+
+// ---------------------------------------------------------------------------
+// Visibilità (chi vede cosa) — applicata nella query, non solo nell'interfaccia
+// ---------------------------------------------------------------------------
+
+/**
+ * Condizione WHERE con le segnalazioni che `user` può vedere:
+ *  - Responsabile manutenzione e Amministratore: tutte (undefined = nessun filtro);
+ *  - Tecnico: quelle assegnate a lui (backlog voce 6, bug-report-42);
+ *  - Segnalatore: quelle che ha creato.
+ * Con più ruoli vale l'unione.
+ */
+export function filtroVisibilita(user: CurrentUser): Prisma.SegnalazioneWhereInput | undefined {
+  if (haRuolo(user, RUOLI.RESPONSABILE, RUOLI.AMMINISTRATORE)) return undefined;
+  const condizioni: Prisma.SegnalazioneWhereInput[] = [];
+  if (haRuolo(user, RUOLI.TECNICO)) condizioni.push({ assegnazioni: { some: { tecnicoId: user.id } } });
+  if (haRuolo(user, RUOLI.SEGNALATORE)) condizioni.push({ segnalatoreId: user.id });
+  // Utente senza ruoli operativi: non vede niente (id impossibile).
+  return condizioni.length > 0 ? { OR: condizioni } : { id: -1 };
+}
 
 // Per l'ELENCO: solo i dati che servono a mostrare una riga di tabella.
 const perLista = {
@@ -59,10 +80,10 @@ const perDettaglio = {
  * Usata da GET /api/segnalazioni
  * Cerca le segnalazioni applicando i filtri ricevuti e restituisce una pagina di risultati.
  */
-export async function listSegnalazioni(f: FiltriSegnalazioni) {
+export async function listSegnalazioni(f: FiltriSegnalazioni, user: CurrentUser) {
   // Costruisce la WHERE. Un filtro `undefined` viene ignorato da Prisma,
   // quindi i filtri non passati nell'URL semplicemente non si applicano.
-  const where: Prisma.SegnalazioneWhereInput = {
+  const filtri: Prisma.SegnalazioneWhereInput = {
     statoId: f.statoId,
     categoriaId: f.categoriaId,
     luogoId: f.luogoId,
@@ -78,6 +99,10 @@ export async function listSegnalazioni(f: FiltriSegnalazioni) {
         ]
       : undefined,
   };
+
+  // I filtri dell'utente si combinano (AND) con la visibilità: non possono allargarla.
+  const visibilita = filtroVisibilita(user);
+  const where: Prisma.SegnalazioneWhereInput = visibilita ? { AND: [filtri, visibilita] } : filtri;
 
   // Due query in parallelo con gli stessi filtri:
   // - findMany: le righe della pagina richiesta (skip = quante saltarne, take = quante prenderne)
@@ -98,10 +123,16 @@ export async function listSegnalazioni(f: FiltriSegnalazioni) {
 
 /**
  * Usata da GET /api/segnalazioni/:id
- * Carica una segnalazione con tutte le relazioni; se non esiste → 404.
+ * Carica una segnalazione con tutte le relazioni; se non esiste o non è visibile a `user` → 404.
  */
-export async function getSegnalazione(id: number) {
-  const segnalazione = await db.segnalazione.findUnique({ where: { id }, include: perDettaglio });
+export async function getSegnalazione(id: number, user: CurrentUser) {
+  // Una segnalazione che l'utente non può vedere risponde 404 come se non esistesse:
+  // con un 403 si confermerebbe che quell'id esiste.
+  const visibilita = filtroVisibilita(user);
+  const segnalazione = await db.segnalazione.findFirst({
+    where: visibilita ? { AND: [{ id }, visibilita] } : { id },
+    include: perDettaglio,
+  });
   if (!segnalazione) throw notFound("Segnalazione non trovata");
   return segnalazione;
 }
