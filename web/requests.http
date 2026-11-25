@@ -71,6 +71,17 @@ Authorization: Bearer {{segnalatore.response.body.token}}
   "prioritaPropostaId": 2
 }
 
+### Tecnici assegnabili (come Responsabile)
+GET {{base}}/tecnici
+Authorization: Bearer {{responsabile.response.body.token}}
+
+### Assegna la segnalazione 1 al tecnico (id dalla lista sopra)
+POST {{base}}/segnalazioni/1/assegnazioni
+Content-Type: application/json
+Authorization: Bearer {{responsabile.response.body.token}}
+
+{ "tecnicoIds": [2] }
+
 ### Cambio stato Segnalato -> Preso in carico (come Responsabile)
 PATCH {{base}}/segnalazioni/1/stato
 Content-Type: application/json

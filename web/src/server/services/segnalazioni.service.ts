@@ -1,10 +1,11 @@
 import "server-only";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "../db";
-import { badRequest, conflict, notFound } from "../errors";
+import { AppError, badRequest, conflict, notFound } from "../errors";
 import { haRuolo, RUOLI, type CurrentUser } from "../auth";
 import { STATO_INIZIALE, transizioniAmmesse } from "../workflow";
 import type {
+  AssegnaTecniciInput,
   CambiaStatoInput,
   CreaSegnalazioneInput,
   FiltriSegnalazioni,
@@ -249,6 +250,55 @@ export async function cambiaStato(id: number, input: CambiaStatoInput, user: Cur
 
     // 7. Rilegge la segnalazione aggiornata da restituire al client.
     return tx.segnalazione.findUniqueOrThrow({ where: { id }, include: perLista });
+  });
+}
+
+/**
+ * Usata da POST /api/segnalazioni/:id/assegnazioni (backlog voce 4)
+ * Assegna uno o più tecnici a una segnalazione non ancora chiusa.
+ * In una transazione: righe di assegnazione + una riga di audit per tecnico.
+ * Il "responsabile" registrato è l'utente che fa la richiesta (dal token).
+ */
+export async function assegnaTecnici(id: number, input: AssegnaTecniciInput, user: CurrentUser) {
+  return db.$transaction(async (tx) => {
+    const segnalazione = await tx.segnalazione.findUnique({ where: { id }, include: { stato: true } });
+    if (!segnalazione) throw notFound("Segnalazione non trovata");
+    if (segnalazione.stato.isFinale) throw badRequest("Segnalazione già chiusa: non si può assegnare");
+
+    // Tutti gli id devono essere tecnici esistenti e attivi.
+    const tecnici = await tx.tecnico.findMany({
+      where: { utenteId: { in: input.tecnicoIds }, utente: { attivo: true } },
+      select: { utenteId: true },
+    });
+    const trovati = new Set(tecnici.map((t) => t.utenteId));
+    const mancanti = input.tecnicoIds.filter((t) => !trovati.has(t));
+    if (mancanti.length > 0) throw badRequest("Tecnico inesistente o non attivo", { tecnicoIds: mancanti });
+
+    // Già assegnati → 409 (vincolo uq_assegnazione_segnalazione_tecnico).
+    const gia = await tx.assegnazione.findMany({
+      where: { segnalazioneId: id, tecnicoId: { in: input.tecnicoIds } },
+      select: { tecnicoId: true },
+    });
+    if (gia.length > 0) {
+      throw new AppError(409, "CONFLICT", "Tecnico già assegnato a questa segnalazione", {
+        tecnicoIds: gia.map((g) => g.tecnicoId),
+      });
+    }
+
+    for (const tecnicoId of input.tecnicoIds) {
+      const a = await tx.assegnazione.create({ data: { segnalazioneId: id, tecnicoId, responsabileId: user.id } });
+      await tx.logAudit.create({
+        data: {
+          azione: "ASSEGNAZIONE",
+          tabellaRiferita: "segnalazione",
+          chiaveRiferita: id,
+          valoreDopo: JSON.stringify({ assegnazioneId: a.id, tecnicoId }),
+          utenteId: user.id,
+        },
+      });
+    }
+
+    return tx.segnalazione.findUniqueOrThrow({ where: { id }, include: perDettaglio });
   });
 }
 

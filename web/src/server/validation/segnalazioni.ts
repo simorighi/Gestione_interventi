@@ -50,3 +50,13 @@ export const filtriSegnalazioniSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
 export type FiltriSegnalazioni = z.infer<typeof filtriSegnalazioniSchema>;
+
+export const assegnaTecniciSchema = z.object({
+  // Uno o più tecnici, senza ripetizioni (backlog voce 4).
+  tecnicoIds: z
+    .array(id)
+    .min(1, "Indicare almeno un tecnico")
+    .max(10)
+    .refine((ids) => new Set(ids).size === ids.length, "Tecnico ripetuto"),
+});
+export type AssegnaTecniciInput = z.infer<typeof assegnaTecniciSchema>;

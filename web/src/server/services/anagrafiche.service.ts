@@ -42,3 +42,29 @@ export function listLuoghi() {
     orderBy: [{ padreId: { sort: "asc", nulls: "first" } }, { nome: "asc" }],
   });
 }
+
+/**
+ * Usata da GET /api/tecnici
+ * Tecnici attivi, per il menu di assegnazione. Niente email: non serve per scegliere.
+ */
+export async function listTecnici() {
+  const tecnici = await db.tecnico.findMany({
+    where: { utente: { attivo: true } },
+    select: {
+      utenteId: true,
+      tipo: true,
+      azienda: true,
+      specializzazione: true,
+      utente: { select: { nome: true, cognome: true } },
+    },
+    orderBy: [{ utente: { cognome: "asc" } }, { utente: { nome: "asc" } }],
+  });
+  return tecnici.map((t) => ({
+    id: t.utenteId,
+    nome: t.utente.nome,
+    cognome: t.utente.cognome,
+    tipo: t.tipo,
+    azienda: t.azienda,
+    specializzazione: t.specializzazione,
+  }));
+}

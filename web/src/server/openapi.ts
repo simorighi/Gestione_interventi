@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { loginSchema } from "./validation/auth";
-import { cambiaStatoSchema, creaSegnalazioneSchema } from "./validation/segnalazioni";
+import { assegnaTecniciSchema, cambiaStatoSchema, creaSegnalazioneSchema } from "./validation/segnalazioni";
 
 /**
  * Specifica OpenAPI delle API, servita su /api/openapi.json e mostrata da Swagger UI su /api/docs.
@@ -87,6 +87,7 @@ export const openApiSpec = {
       Login: fromZod(loginSchema),
       CreaSegnalazione: fromZod(creaSegnalazioneSchema),
       CambiaStato: fromZod(cambiaStatoSchema),
+      AssegnaTecnici: fromZod(assegnaTecniciSchema),
     },
   },
   paths: {
@@ -142,6 +143,14 @@ export const openApiSpec = {
     },
     "/luoghi": {
       get: { tags: ["Anagrafiche"], summary: "Luoghi (edifici, aree, impianti)", responses: { "200": listaDi("Elenco luoghi") } },
+    },
+    "/tecnici": {
+      get: {
+        tags: ["Anagrafiche"],
+        summary: "Tecnici attivi (per l'assegnazione)",
+        description: "Ruoli ammessi: Responsabile manutenzione, Amministratore.",
+        responses: { "200": listaDi("Elenco tecnici"), "403": errore("Ruolo non autorizzato") },
+      },
     },
     "/segnalazioni": {
       get: {
@@ -217,6 +226,33 @@ export const openApiSpec = {
         responses: {
           "200": { description: "Segnalazione, con `transizioniAmmesse` (stati raggiungibili da quello attuale)" },
           "404": errore("Segnalazione non trovata o non di competenza dell'utente"),
+        },
+      },
+    },
+    "/segnalazioni/{id}/assegnazioni": {
+      post: {
+        tags: ["Segnalazioni"],
+        summary: "Assegna uno o più tecnici",
+        description:
+          "Ruoli ammessi: Responsabile manutenzione, Amministratore. Scrive una riga di log_audit " +
+          "ASSEGNAZIONE per ogni tecnico, nella stessa transazione.",
+        parameters: [idPath("Id della segnalazione")],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/AssegnaTecnici" },
+              example: { tecnicoIds: [2] },
+            },
+          },
+        },
+        responses: {
+          "201": { description: "Segnalazione con le assegnazioni aggiornate" },
+          "400": errore("Dati non validi, tecnico inesistente o segnalazione chiusa"),
+          "401": errore("Token mancante, scaduto o non valido"),
+          "403": errore("Ruolo non autorizzato"),
+          "404": errore("Segnalazione non trovata"),
+          "409": errore("Tecnico già assegnato"),
         },
       },
     },

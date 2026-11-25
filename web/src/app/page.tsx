@@ -10,6 +10,8 @@ const ENDPOINTS = [
   ["POST", "/api/segnalazioni", "crea segnalazione (token Bearer)"],
   ["GET", "/api/segnalazioni/:id", "dettaglio + storico"],
   ["PATCH", "/api/segnalazioni/:id/stato", "cambio stato (token Bearer)"],
+  ["POST", "/api/segnalazioni/:id/assegnazioni", "assegna tecnici (Responsabile)"],
+  ["GET", "/api/tecnici", "tecnici attivi (Responsabile)"],
 ] as const;
 
 export default function Home() {
