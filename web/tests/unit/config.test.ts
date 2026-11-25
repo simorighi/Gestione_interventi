@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "@/server/config";
+import { docsAttive, loadConfig } from "@/server/config";
 
 const base = {
   DATABASE_URL: "postgresql://u:p@localhost:5432/db",
@@ -34,5 +34,14 @@ describe("loadConfig (fail-fast all'avvio)", () => {
   it("LOG_LEVEL ha default info e accetta solo valori noti", () => {
     expect(loadConfig(base).LOG_LEVEL).toBe("info");
     expect(() => loadConfig({ ...base, LOG_LEVEL: "verbose" })).toThrow(/LOG_LEVEL/);
+  });
+});
+
+describe("docsAttive (C7)", () => {
+  it("attiva in sviluppo, spenta in produzione, forzabile con API_DOCS", () => {
+    expect(docsAttive(loadConfig({ ...base, NODE_ENV: "development" }))).toBe(true);
+    expect(docsAttive(loadConfig({ ...base, NODE_ENV: "production" }))).toBe(false);
+    expect(docsAttive(loadConfig({ ...base, NODE_ENV: "production", API_DOCS: "true" }))).toBe(true);
+    expect(docsAttive(loadConfig({ ...base, NODE_ENV: "development", API_DOCS: "false" }))).toBe(false);
   });
 });

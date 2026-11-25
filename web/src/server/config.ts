@@ -36,9 +36,17 @@ const schema = z.object({
   AUTH_TOKEN_TTL_MIN: z.coerce.number().int().min(5).max(1440).default(480),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Swagger UI (/api/docs) e specifica (/api/openapi.json): "true"/"false".
+  // Se non impostata: attiva in sviluppo, spenta in produzione (C7).
+  API_DOCS: z.enum(["true", "false"]).optional(),
 });
 
 export type Config = z.infer<typeof schema>;
+
+/** true se la documentazione interattiva dell'API va servita in questo ambiente. */
+export function docsAttive(c: Config = config()): boolean {
+  return c.API_DOCS ? c.API_DOCS === "true" : c.NODE_ENV !== "production";
+}
 
 let cache: Config | undefined;
 
