@@ -15,6 +15,21 @@ function createClient() {
   });
 }
 
-export const db = globalForPrisma.prisma ?? createClient();
+function client(): PrismaClient {
+  globalForPrisma.prisma ??= createClient();
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
+/**
+ * Client Prisma creato alla PRIMA query, non quando il modulo viene importato:
+ * `next build` importa le route per analizzarle e non ha (né deve avere)
+ * DATABASE_URL. A runtime la configurazione è già stata validata all'avvio
+ * (src/instrumentation.ts).
+ */
+export const db: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const c = client();
+    const value = Reflect.get(c, prop, c);
+    return typeof value === "function" ? value.bind(c) : value;
+  },
+});

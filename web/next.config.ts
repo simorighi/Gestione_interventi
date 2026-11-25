@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   // Non dichiarare "X-Powered-By: Next.js" a chi chiama l'API.
   poweredByHeader: false,
+  // Immagine Docker di produzione più piccola: `next build` produce in
+  // .next/standalone solo i file necessari a `node server.js` (vedi Dockerfile).
+  output: "standalone",
 };
 
 export default nextConfig;

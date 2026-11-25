@@ -66,6 +66,16 @@ export function config(): Config {
   return cache;
 }
 
+/** All'avvio del server: se la configurazione non è valida scrive il motivo su stderr ed esce (fail-fast). */
+export function validaAllAvvio() {
+  try {
+    cache = loadConfig();
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
+}
+
 /** Solo per i test: forza la rilettura di process.env. */
 export function resetConfig() {
   cache = undefined;

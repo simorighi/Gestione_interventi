@@ -9,3 +9,7 @@ node_modules
 npm-debug.log*
 Dockerfile
 .dockerignore
+# Test, database locali e output di build non servono nell'immagine
+tests
+.db-locale
+coverage
