@@ -1,9 +1,10 @@
 import "dotenv/config";
-import { defineConfig, env } from "prisma/config";
+import { defineConfig } from "prisma/config";
 
-// La CLI (migrate, studio) usa la connessione diretta: le migrazioni non
-// funzionano attraverso il pooler in transaction mode di Supabase.
-// L'app a runtime usa invece DATABASE_URL (vedi src/server/db.ts).
+// La CLI (migrate, studio, seed) usa DATABASE_URL; l'app a runtime la legge in
+// src/server/db.ts. Per `prisma generate` (lanciato anche da `npm install`)
+// la connessione non serve: se DATABASE_URL manca il client si genera lo stesso,
+// e sono i comandi che parlano davvero col DB a fallire con un errore chiaro.
 export default defineConfig({
   schema: "prisma/schema.prisma",
   migrations: {
@@ -11,6 +12,6 @@ export default defineConfig({
     seed: "tsx prisma/seed.ts",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    url: process.env.DATABASE_URL,
   },
 });
