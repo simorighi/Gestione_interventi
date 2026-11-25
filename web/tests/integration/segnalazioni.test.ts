@@ -43,6 +43,19 @@ describe("PATCH /api/segnalazioni/:id/stato", () => {
     expect((await db.segnalazione.findUniqueOrThrow({ where: { id: s.id } })).statoId).toBe(d.stati["Segnalato"]);
   });
 
+  it("#3 tecnico NON assegnato: 404 e stato invariato; tecnico assegnato: 200", async () => {
+    const s = await d.segnalazione("Luce rotta");
+    await d.assegna(s.id, d.u.tecnicoA);
+    const opzioni = { params: { id: String(s.id) }, body: { statoId: d.stati["Preso in carico"] } };
+
+    const altro = await chiama(cambiaStato, "PATCH", "/x", { ...opzioni, utente: d.u.tecnicoB });
+    expect(altro.status).toBe(404);
+    expect((await db.segnalazione.findUniqueOrThrow({ where: { id: s.id } })).statoId).toBe(d.stati["Segnalato"]);
+
+    const assegnato = await chiama(cambiaStato, "PATCH", "/x", { ...opzioni, utente: d.u.tecnicoA });
+    expect(assegnato.status).toBe(200);
+  });
+
   it("#4 id inesistente: 404", async () => {
     const r = await chiama(cambiaStato, "PATCH", "/api/segnalazioni/9999/stato", {
       utente: d.u.responsabile,

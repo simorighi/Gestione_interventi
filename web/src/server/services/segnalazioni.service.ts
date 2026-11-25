@@ -199,7 +199,13 @@ export async function creaSegnalazione(input: CreaSegnalazioneInput, user: Curre
 export async function cambiaStato(id: number, input: CambiaStatoInput, user: CurrentUser) {
   return db.$transaction(async (tx) => {
     // 1. Carica la segnalazione con il suo stato attuale; se non esiste → 404.
-    const corrente = await tx.segnalazione.findUnique({ where: { id }, include: { stato: true } });
+    //    Un Tecnico può modificare solo le segnalazioni assegnate a lui (C3, test-plan #3):
+    //    per le altre risponde 404, come la lettura (non rivela che l'id esiste).
+    const soloAssegnate = !haRuolo(user, RUOLI.RESPONSABILE, RUOLI.AMMINISTRATORE);
+    const corrente = await tx.segnalazione.findFirst({
+      where: soloAssegnate ? { id, assegnazioni: { some: { tecnicoId: user.id } } } : { id },
+      include: { stato: true },
+    });
     if (!corrente) throw notFound("Segnalazione non trovata");
 
     // 2. Lo stato di destinazione deve esistere → altrimenti 400.

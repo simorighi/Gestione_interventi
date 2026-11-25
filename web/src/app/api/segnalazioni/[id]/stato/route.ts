@@ -8,7 +8,8 @@ import { cambiaStatoSchema, idParam } from "@/server/validation/segnalazioni";
 /**
  * PATCH /api/segnalazioni/:id/stato — CAMBIA LO STATO DI UNA SEGNALAZIONE
  *
- * Chi può chiamarla: Tecnico, Responsabile manutenzione, Amministratore
+ * Chi può chiamarla: Responsabile manutenzione, Amministratore, e il Tecnico solo sulle
+ *   segnalazioni assegnate a lui (per le altre → 404)
  *   (header obbligatorio `Authorization: Bearer <token>`).
  * Body JSON:
  *   { statoId, motivo? }   ← statoId obbligatorio, motivo facoltativo (finisce nello storico)
