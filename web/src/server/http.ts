@@ -1,8 +1,10 @@
 import "server-only";
+import { randomUUID } from "node:crypto";
 import { connection } from "next/server";
 import { ZodError } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import { AppError } from "./errors";
+import { conContesto, descriviErrore, log } from "./log";
 
 type Handler<Ctx> = (request: Request, ctx: Ctx) => Promise<Response>;
 
@@ -17,11 +19,33 @@ export function route<Ctx = unknown>(handler: Handler<Ctx>): Handler<Ctx> {
   return async (request, ctx) => {
     // Fuori dal try: il segnale di interruzione del prerender non va intercettato.
     await connection();
-    try {
-      return await handler(request, ctx);
-    } catch (err) {
-      return toErrorResponse(err);
-    }
+    const requestId = randomUUID();
+    const inizio = performance.now();
+    const { pathname } = new URL(request.url);
+
+    return conContesto({ requestId }, async () => {
+      let response: Response;
+      try {
+        response = await handler(request, ctx);
+      } catch (err) {
+        response = toErrorResponse(err);
+      }
+      // Una riga per richiesta: chi (userId, aggiunto da getCurrentUser), cosa, esito, durata.
+      const campi = {
+        method: request.method,
+        path: pathname,
+        status: response.status,
+        durationMs: Math.round(performance.now() - inizio),
+      };
+      if (response.status >= 500) log.error("richiesta fallita", campi);
+      else if (response.status === 401 || response.status === 403 || response.status === 429)
+        log.warn("richiesta rifiutata", campi);
+      else log.info("richiesta", campi);
+
+      // Il client riceve l'id: chi segnala un problema lo comunica e lo si trova nei log.
+      response.headers.set("x-request-id", requestId);
+      return response;
+    });
   };
 }
 
@@ -42,7 +66,8 @@ function toErrorResponse(err: unknown): Response {
         return errorJson(404, "NOT_FOUND", "Record non trovato");
     }
   }
-  console.error(err);
+  // Dettagli solo nel log del server; al client un messaggio generico (niente query o stack).
+  log.error("errore non gestito", descriviErrore(err));
   return errorJson(500, "INTERNAL_ERROR", "Errore interno del server");
 }
 

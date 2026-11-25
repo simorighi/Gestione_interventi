@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { config } from "./config";
 import { db } from "./db";
 import { AppError, forbidden, unauthorized } from "./errors";
+import { impostaUtente, log } from "./log";
 import { emettiToken, verificaToken } from "./token";
 
 export const RUOLI = {
@@ -64,6 +65,7 @@ export async function getCurrentUser(request: Request): Promise<CurrentUser> {
 
   const utente = await db.utente.findUnique({ where: { id: payload.sub }, select: selezioneUtente });
   if (!utente || !utente.attivo) throw unauthorized();
+  impostaUtente(utente.id);
   return aCurrentUser(utente);
 }
 
@@ -128,9 +130,13 @@ export async function login(email: string, password: string) {
 
   if (!utente || !passwordOk || !utente.attivo) {
     registraFallimento(chiave, ora);
+    // Niente email nel log (dato personale): basta sapere che c'è stato un fallimento.
+    log.warn("login fallito", { evento: "LOGIN_FALLITO", tentativi: tentativi.get(chiave)?.n });
     throw new AppError(401, "INVALID_CREDENTIALS", "Email o password non corrette");
   }
   tentativi.delete(chiave);
+  impostaUtente(utente.id);
+  log.info("login riuscito", { evento: "LOGIN" });
 
   const { AUTH_SECRET, AUTH_TOKEN_TTL_MIN } = config();
   const durata = AUTH_TOKEN_TTL_MIN * 60;
