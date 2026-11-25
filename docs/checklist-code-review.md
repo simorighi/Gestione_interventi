@@ -1,31 +1,53 @@
-# Checklist di code review — PR #12 Fix visibilità interventi[cite: 30]
+# Checklist di code review — Fix visibilità segnalazioni (bug 42)
 
-| Progetto | Team revisionato | Team revisore | Data | Pull request |[cite: 30]
+| Progetto | Team revisionato | Team revisore | Data | Pull request |
 |---|---|---|---|---|
-| Smart Maintenance | Simo Righi | Manuel Boscaini | 11/11/2026 | PR #12 |
+| Smart Maintenance | Team 1 | *(da compilare: nome del revisore dell'altro team)* | *(data della review)* | *(numero della PR su GitHub)* |
 
-## Correttezza[cite: 30]
+> **Perché questa checklist è stata riaperta.** La versione dell'11/11 approvava
+> "così com'è" una correzione che citava file e test inesistenti
+> (`tests/integration/api_interventi.test.ts`), e affermava che il test
+> "fallisce rimuovendo il `where`". Nessuno l'aveva eseguito. Una review che
+> approva senza aprire i file non è una review. Le voci qui sotto vanno
+> ricompilate dal **revisore dell'altro team**, sul codice reale. Per ogni voce
+> c'è il punto da controllare.
 
-- [x] Sì — *riferimento:* il filtro Prisma copre correttamente il caso di isolamento dei dati del tecnico loggato, rispettando la riga 3 di `docs/test-plan.md` ("solo il tecnico assegnato modifica/vede").[cite: 30]
+Codice da revisionare: commit `Protegge letture, filtra per ruolo` e
+`Limita cambio stato ai tecnici assegnati` (vedi `docs/bug-report-42.md`).
 
-## Leggibilità[cite: 30]
+## Correttezza
 
-- [x] Sì — *riferimento:* l'estrazione dell'`id` dal token utente nelle route di Next.js e il suo passaggio a Prisma è chiaro in 3 righe, senza bisogno di ulteriori funzioni di appoggio.[cite: 30]
+- [ ] Sì / No — *riferimento:* `filtroVisibilita()` in
+  `web/src/server/services/segnalazioni.service.ts` copre tutti i ruoli?
+  Cosa succede a un utente con **due** ruoli (es. Tecnico + Segnalatore)? E a
+  uno senza ruoli? Confrontare con `docs/test-plan.md`, righe 3 e 7.
 
-## Test[cite: 30]
+## Leggibilità
 
-- [x] Sì — *riferimento:* è presente il test `test_lista_filtrata_per_tecnico` in `tests/integration/api_interventi.test.ts`.[cite: 30] Fallisce rimuovendo il `where` da Prisma e passa con la correzione.[cite: 30]
+- [ ] Sì / No — *riferimento:* si capisce dalla sola lettura di
+  `listSegnalazioni` e `getSegnalazione` perché un filtro dell'utente non può
+  allargare la visibilità (`AND` tra filtri e visibilità)?
 
-## Impatto[cite: 30]
+## Test
 
-- [x] Sì (l'impatto è stato verificato) — *riferimento:* verificato che l'aggiunta di questo filtro non rompe la vista globale dell'amministratore (responsabile NordFacility), gestita in un blocco di codice o endpoint separato. La suite globale passa al 100%.[cite: 30]
+- [ ] Sì / No — *riferimento:* `web/tests/integration/visibilita.test.ts`.
+  Prova da fare: togliere `visibilita` dalla `where` di `listSegnalazioni`,
+  lanciare `npm run test:integration` e annotare quali test falliscono. Poi
+  ripristinare.
 
-## Esito[cite: 30]
+## Impatto
 
-- [x] Approvata così com'è[cite: 30]
-- [ ] Approvata con commenti minori (non bloccanti)[cite: 30]
-- [ ] Richieste modifiche — non si può chiudere senza rivederla[cite: 30]
+- [ ] Sì / No — *riferimento:* la vista del Responsabile/Amministratore
+  (test `responsabile e amministratore vedono tutto`) e il frontend
+  (`Dashboard.tsx`, `ListaSegnalazioni.tsx`): un tecnico senza assegnazioni
+  vede una lista vuota, e non un errore?
 
-## Commenti[cite: 30]
+## Esito
 
-Ottimo lavoro. La correzione è isolata perfettamente e non impatta le viste amministrative. Nessun problema rilevato.
+- [ ] Approvata così com'è
+- [ ] Approvata con commenti minori (non bloccanti)
+- [ ] Richieste modifiche — non si può chiudere senza rivederla
+
+## Commenti
+
+*(da compilare dal revisore)*
