@@ -1,17 +1,31 @@
-# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 25/11/2026  ·  v2.0
 #
-# Componente web/ (Next.js 16 + Prisma 7): serve sia le pagine sia le API
-# (/api/*). Immagine costruita da web/Dockerfile e pubblicata su
-# localhost:32000 (vedi passaggi.md, Passo 1).
+# Componente web/ (Next.js 16 + Prisma 7): serve le API (/api/*).
+# Immagine di produzione costruita da web/Dockerfile e pubblicata su
+# localhost:32000 (vedi passaggi.md, Passo 1). Rilascio e rollback:
+# rilascio-rollback.md.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: web
   labels:
     app: web
+  annotations:
+    # Compare in 'rollout history': dice cosa contiene ogni revisione.
+    kubernetes.io/change-cause: "web 1.1.0: login con token, permessi per ruolo, immagine di produzione"
 spec:
-  # 2 copie: bastano per vedere rolling update e self-healing.
   replicas: 2
+  # Revisioni conservate per 'kubectl rollout undo'.
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Mai meno di 2 Pod pronti durante un rilascio: se la nuova versione non
+      # diventa Ready, i Pod vecchi continuano a servire (zero downtime).
+      maxUnavailable: 0
+      maxSurge: 1
+  # Se un rilascio non completa entro 3 minuti, 'rollout status' fallisce.
+  progressDeadlineSeconds: 180
   selector:
     matchLabels:
       # Deve essere identica a template.metadata.labels e al selector di
@@ -22,35 +36,43 @@ spec:
       labels:
         app: web
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000          # utente "node" dell'immagine
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: web
           # Stesso tag usato in docker build/push. Mai "latest".
-          image: localhost:32000/nordfacility/web:1.0.0
+          image: localhost:32000/nordfacility/web:1.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 3000   # = EXPOSE 3000 nel Dockerfile
-          # Parametri da ConfigMap, credenziali (DATABASE_URL) da Secret:
-          # niente valori scritti a mano qui.
+          # Parametri da ConfigMap, credenziali (DATABASE_URL, AUTH_SECRET) da
+          # Secret: niente valori scritti a mano qui.
           envFrom:
             - configMapRef:
                 name: web-config
             - secretRef:
                 name: web-secret
-          # Il dev server compila le pagine alla prima richiesta: si concede
-          # tempo all'avvio prima di considerare il Pod rotto.
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          # Il server di produzione parte in pochi secondi.
           startupProbe:
             tcpSocket:
               port: http
-            periodSeconds: 5
-            failureThreshold: 24     # fino a 2 minuti per partire
+            periodSeconds: 2
+            failureThreshold: 30     # fino a 1 minuto per partire
           # Pronto a ricevere traffico solo se anche il database risponde.
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
             periodSeconds: 10
-            timeoutSeconds: 10
+            timeoutSeconds: 5
             failureThreshold: 3
           # Vivo = il processo ascolta. Non dipende dal database, così un
           # problema su Supabase non fa riavviare i Pod in loop.
@@ -61,13 +83,13 @@ spec:
             failureThreshold: 3
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: 100m
+              memory: 192Mi
             limits:
-              memory: 1Gi            # next dev consuma parecchia memoria
+              memory: 512Mi
 
 # Checklist prima di 'apply':
-# [x] immagine e tag pushati: curl http://localhost:32000/v2/nordfacility/web/tags/list
+# [ ] immagine e tag pushati: curl http://localhost:32000/v2/nordfacility/web/tags/list
 # [x] label "app: web" uguale in matchLabels, template e Service
 # [x] containerPort 3000 = porta reale del processo (PORT nella ConfigMap)
-# [x] ConfigMap web-config e Secret web-secret applicati PRIMA del Deployment
+# [ ] ConfigMap web-config e Secret web-secret (con AUTH_SECRET) applicati PRIMA del Deployment

@@ -1,24 +1,35 @@
-# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.1
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 25/11/2026  ·  v2.0
 #
-# Richiede l'addon 'ingress' di MicroK8s (microk8s enable ingress).
+# Richiede l'addon 'ingress' di MicroK8s (microk8s enable ingress) e il
+# Secret TLS "nordfacility-tls" (vedi rilascio-rollback.md, Passo 1).
 #
-# Flusso:  browser ──► Ingress (nordfacility.local)
+# Flusso:  browser ──HTTPS──► Ingress (nordfacility.local)
 #                        ├─ /api/* ──► web-svc      ──► Pod web (Next.js) ──► DB Supabase
 #                        └─ /      ──► frontend-svc ──► Pod frontend (nginx, SPA)
 #
 # Il frontend gira nel browser: le sue fetch('/api/...') tornano all'Ingress
 # (stesso host, quindi niente CORS) e vengono girate al backend. Solo il
-# backend conosce e usa DATABASE_URL.
+# backend conosce e usa DATABASE_URL e AUTH_SECRET.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: nordfacility-ingress
+  annotations:
+    # HTTP → HTTPS: token e dati personali non viaggiano mai in chiaro (C8).
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # HSTS (Strict-Transport-Security) lo aggiunge già ingress-nginx di default
+    # sugli host con TLS: niente "configuration-snippet", che le versioni
+    # recenti rifiutano per motivi di sicurezza.
+    # Body massimo (le API ricevono solo JSON piccoli).
+    nginx.ingress.kubernetes.io/proxy-body-size: "1m"
 spec:
-  # Classe dell'ingress controller NGINX installato dall'addon MicroK8s.
   ingressClassName: public
+  tls:
+    - hosts:
+        - nordfacility.local
+      secretName: nordfacility-tls
   rules:
-    # Host locale: aggiungere "127.0.0.1 nordfacility.local" al file hosts,
-    # oppure usare curl --resolve nordfacility.local:80:127.0.0.1
     - host: nordfacility.local
       http:
         paths:
@@ -38,10 +49,40 @@ spec:
                 name: frontend-svc
                 port:
                   number: 80
+---
+# Ingress separato SOLO per il login, con limite di richieste per IP.
+# Il limite dei tentativi nel backend vale per singola replica (in memoria);
+# questo vale per tutto il cluster ed è il primo filtro contro i tentativi a raffica.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nordfacility-login
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/limit-rpm: "20"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "1"
+spec:
+  ingressClassName: public
+  tls:
+    - hosts:
+        - nordfacility.local
+      secretName: nordfacility-tls
+  rules:
+    - host: nordfacility.local
+      http:
+        paths:
+          - path: /api/auth/login
+            pathType: Exact
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 80
 
 # Checklist:
 # [ ] addon 'ingress' abilitato (microk8s status)
-# [ ] 'microk8s kubectl get svc' mostra web-svc e frontend-svc
-# [ ] 'microk8s kubectl get ingress' mostra un ADDRESS
-# [ ] curl http://nordfacility.local/            -> HTML della SPA
-# [ ] curl http://nordfacility.local/api/health  -> {"status":"ok",...}
+# [ ] Secret TLS presente: microk8s kubectl get secret nordfacility-tls
+# [ ] 'microk8s kubectl get ingress' mostra ADDRESS e porte 80, 443
+# [ ] curl -I http://nordfacility.local/              -> 308 verso https://
+# [ ] curl --cacert nordfacility.crt https://nordfacility.local/api/health -> {"status":"ok",...}

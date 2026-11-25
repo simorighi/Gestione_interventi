@@ -1,8 +1,9 @@
-# Progetto: Nordfacility  ·  Team: 1  ·  Data: 18/11/2026  ·  v1.0
+# Progetto: Nordfacility  ·  Team: 1  ·  Data: 25/11/2026  ·  v1.1
 #
 # Parametri NON sensibili del componente web/. Diventano variabili
 # d'ambiente del container tramite envFrom (deployment-web.yaml).
-# Le credenziali (DATABASE_URL) stanno nel Secret, non qui.
+# Le credenziali (DATABASE_URL, AUTH_SECRET) stanno nel Secret, non qui.
+# Elenco completo e significato: docs/configuration.md
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -16,8 +17,14 @@ data:
   PORT: "3000"
   # Niente telemetria verso Vercel dal cluster.
   NEXT_TELEMETRY_DISABLED: "1"
+  LOG_LEVEL: "info"
+  # Durata del token di login in minuti (8 ore).
+  AUTH_TOKEN_TTL_MIN: "480"
+  # Swagger UI spento nel cluster (C7). "true" per riaccenderlo in un ambiente di test.
+  API_DOCS: "false"
+  # CORS_ORIGIN non serve: dietro l'Ingress frontend e API hanno la stessa origine.
 
 # Checklist:
 # [x] nessun valore qui è una credenziale
-# [x] i nomi delle chiavi sono quelli letti da Next.js
+# [x] i nomi delle chiavi sono quelli letti da web/src/server/config.ts
 # [ ] dopo ogni modifica: apply + rollout restart deploy/web

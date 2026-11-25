@@ -10,6 +10,12 @@ metadata:
     app: frontend
 spec:
   replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       # Identica a template.metadata.labels e al selector di service-frontend.yaml.
@@ -19,10 +25,19 @@ spec:
       labels:
         app: frontend
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101           # utente "nginx" di nginx-unprivileged
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: frontend
-          image: localhost:32000/nordfacility/frontend:1.0.0
+          image: localhost:32000/nordfacility/frontend:1.1.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - name: http
               containerPort: 8080   # = EXPOSE 8080 / listen 8080 in nginx.conf
