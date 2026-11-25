@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { Spinner } from 'react-bootstrap';
+import { useAuth } from './contexts/AuthContext';
+import { Login } from './pages/Login';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { ListaSegnalazioni } from './pages/ListaSegnalazioni';
@@ -9,6 +12,7 @@ import { Impostazioni } from './pages/Impostazioni';
 import { Edifici } from './pages/Edifici';
 
 function App() {
+  const { utente, caricamento } = useAuth();
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedSegnalazioneId, setSelectedSegnalazioneId] = useState<number | null>(null);
 
@@ -41,12 +45,22 @@ function App() {
         return <Tecnici />;
       case 'impostazioni':
         return <Impostazioni />;
-        case'edifici':
+      case 'edifici':
         return <Edifici />;
       default:
         return <Dashboard />;
     }
   };
+
+  if (caricamento) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+        <Spinner />
+      </div>
+    );
+  }
+  // Senza utente autenticato si vede solo il login.
+  if (!utente) return <Login />;
 
   return (
     <Layout currentPage={currentPage} onPageChange={setCurrentPage}>
