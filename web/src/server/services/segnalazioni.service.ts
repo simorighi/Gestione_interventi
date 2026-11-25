@@ -3,6 +3,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { db } from "../db";
 import { badRequest, conflict, notFound } from "../errors";
 import type { CurrentUser } from "../auth";
+import { STATO_INIZIALE, transizioniAmmesse } from "../workflow";
 import type {
   CambiaStatoInput,
   CreaSegnalazioneInput,
@@ -13,22 +14,6 @@ import type {
 // Qui sta la logica di business: le route chiamano queste funzioni passando dati già validati.
 // Le funzioni non sanno nulla di HTTP: lanciano errori (notFound, badRequest...) che il
 // wrapper `route()` trasforma nella risposta con lo status giusto.
-
-/** Nome dello stato in cui nasce ogni segnalazione (deve esistere nella tabella `stato`). */
-export const STATO_INIZIALE = "Segnalato";
-
-/**
- * MACCHINA A STATI (dal backlog): per ogni stato, gli stati in cui si può passare.
- * Per cambiare il workflow basta modificare questa mappa.
- * I nomi devono coincidere esattamente con la colonna `nome` della tabella `stato`.
- */
-const TRANSIZIONI: Record<string, readonly string[]> = {
-  Segnalato: ["Preso in carico"],
-  "Preso in carico": ["In lavorazione"],
-  "In lavorazione": ["Sospeso", "Risolto"],
-  Sospeso: ["In lavorazione"],
-  Risolto: [], // stato finale: da qui non si esce
-};
 
 // ---------------------------------------------------------------------------
 // Cosa caricare insieme alla segnalazione (le "include" di Prisma = le JOIN in SQL)
@@ -191,7 +176,7 @@ export async function cambiaStato(id: number, input: CambiaStatoInput, user: Cur
 
     // 3. Il passaggio è consentito dalla macchina a stati? Se no → 400,
     //    e nei details indichiamo quali stati sarebbero ammessi.
-    const ammessi = TRANSIZIONI[corrente.stato.nome] ?? [];
+    const ammessi = transizioniAmmesse(corrente.stato.nome);
     if (!ammessi.includes(nuovo.nome)) {
       throw badRequest(`Transizione non ammessa: "${corrente.stato.nome}" → "${nuovo.nome}"`, {
         ammessi,
@@ -236,10 +221,5 @@ export async function cambiaStato(id: number, input: CambiaStatoInput, user: Cur
   });
 }
 
-/**
- * Usata da GET /api/segnalazioni/:id
- * Dato il nome di uno stato, restituisce i nomi degli stati raggiungibili da lì.
- */
-export function transizioniAmmesse(nomeStato: string) {
-  return TRANSIZIONI[nomeStato] ?? [];
-}
+// Riesportata per le route che la usavano da qui.
+export { transizioniAmmesse };
