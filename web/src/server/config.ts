@@ -35,7 +35,7 @@ export type Config = z.infer<typeof schema>;
 let cache: Config | undefined;
 
 /** Legge e valida le variabili d'ambiente. Lancia un errore leggibile se non sono valide. */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
   const parsed = schema.safeParse(env);
   if (!parsed.success) {
     const righe = parsed.error.issues.map((i) => `  - ${i.path.join(".")}: ${i.message}`);
