@@ -24,7 +24,7 @@ function App() {
   const renderPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onVisualizzaDettaglio={vaiAlDettaglio} />;
       case 'segnalazioni':
         return (
           <ListaSegnalazioni 
@@ -33,7 +33,7 @@ function App() {
           />
         );
       case 'nuova':
-        return <NuovaSegnalazione onAnnulla={() => setCurrentPage('segnalazioni')} />;
+        return <NuovaSegnalazione onAnnulla={() => setCurrentPage('segnalazioni')} onCreata={vaiAlDettaglio} />;
       case 'dettaglio':
         return (
           <DettaglioSegnalazione 
@@ -48,7 +48,7 @@ function App() {
       case 'edifici':
         return <Edifici />;
       default:
-        return <Dashboard />;
+        return <Dashboard onVisualizzaDettaglio={vaiAlDettaglio} />;
     }
   };
 

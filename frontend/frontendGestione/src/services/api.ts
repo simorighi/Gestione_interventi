@@ -170,3 +170,6 @@ export const nomeCompleto = (p: Persona) => `${p.nome} ${p.cognome}`;
 
 export const formattaData = (iso: string) =>
   new Date(iso).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
+
+/** Priorità decisa dal responsabile, se c'è; altrimenti quella proposta dal segnalatore. */
+export const prioritaEffettiva = (s: SegnalazioneRiga) => s.prioritaAssegnata ?? s.prioritaProposta;
