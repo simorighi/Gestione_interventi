@@ -3,7 +3,7 @@
 // crea le tabelle dallo schema Prisma e inserisce i dati di riferimento.
 // Non usa mai il database Supabase del team.
 import { execFileSync } from "node:child_process";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import EmbeddedPostgres from "embedded-postgres";
@@ -61,6 +61,8 @@ async function preparaDatabase(pg: EmbeddedPostgres): Promise<string> {
   const client = pg.getPgClient("nordfacility_test", "127.0.0.1");
   await client.connect();
   await client.query(sql);
+  // Stessi script da applicare su Supabase (C6): il trigger che rende log_audit immutabile.
+  await client.query(readFileSync(path.resolve(__dirname, "../../prisma/sql/01-audit-immutabile.sql"), "utf8"));
   await client.end();
 
   const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
