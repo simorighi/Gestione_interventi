@@ -26,6 +26,14 @@ const schema = z.object({
   // separate da virgola. Facoltativa: dietro l'Ingress (o il proxy di Vite)
   // frontend e API hanno la stessa origine e CORS non serve.
   CORS_ORIGIN: listaOrigini,
+  // Chiave con cui il server firma i token di accesso. Segreta (va nel Secret
+  // Kubernetes / nel .env locale), diversa per ogni ambiente, almeno 32 caratteri.
+  // Generarla con: openssl rand -base64 48
+  AUTH_SECRET: z
+    .string({ message: "Configurazione mancante: AUTH_SECRET" })
+    .min(32, "AUTH_SECRET deve avere almeno 32 caratteri (openssl rand -base64 48)"),
+  // Durata di un token di accesso, in minuti (default 8 ore = un turno di lavoro).
+  AUTH_TOKEN_TTL_MIN: z.coerce.number().int().min(5).max(1440).default(480),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { loadConfig } from "@/server/config";
 
-const base = { DATABASE_URL: "postgresql://u:p@localhost:5432/db" };
+const base = {
+  DATABASE_URL: "postgresql://u:p@localhost:5432/db",
+  AUTH_SECRET: "x".repeat(32),
+};
 
 describe("loadConfig (fail-fast all'avvio)", () => {
   it("senza DATABASE_URL lancia un errore che nomina la variabile", () => {
@@ -9,7 +12,12 @@ describe("loadConfig (fail-fast all'avvio)", () => {
   });
 
   it("rifiuta una DATABASE_URL che non è PostgreSQL", () => {
-    expect(() => loadConfig({ DATABASE_URL: "mysql://x" })).toThrow(/postgresql/);
+    expect(() => loadConfig({ ...base, DATABASE_URL: "mysql://x" })).toThrow(/postgresql/);
+  });
+
+  it("senza AUTH_SECRET, o con un segreto troppo corto, non parte", () => {
+    expect(() => loadConfig({ DATABASE_URL: base.DATABASE_URL })).toThrow(/AUTH_SECRET/);
+    expect(() => loadConfig({ ...base, AUTH_SECRET: "corto" })).toThrow(/32 caratteri/);
   });
 
   it("CORS_ORIGIN è facoltativa e accetta più origini separate da virgola", () => {

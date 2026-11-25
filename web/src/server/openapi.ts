@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { loginSchema } from "./validation/auth";
 import { cambiaStatoSchema, creaSegnalazioneSchema } from "./validation/segnalazioni";
 
 /**
@@ -48,22 +49,22 @@ export const openApiSpec = {
     version: "0.1.0",
     description:
       "API per la gestione delle segnalazioni di manutenzione.\n\n" +
-      "**Autenticazione provvisoria**: le operazioni di scrittura richiedono l'header `x-user-id` " +
-      "con l'id di un utente esistente. Clicca **Authorize** e inserisci l'id (es. quello stampato da `npm run db:seed`).",
+      "**Autenticazione**: chiama `POST /auth/login` con email e password, copia il `token` della risposta, " +
+      "clicca **Authorize** e incollalo. Le richieste successive inviano `Authorization: Bearer <token>`.",
   },
   servers: [{ url: "/api" }],
   tags: [
     { name: "Sistema" },
+    { name: "Autenticazione" },
     { name: "Anagrafiche", description: "Dati di riferimento (sola lettura)" },
     { name: "Segnalazioni" },
   ],
   components: {
     securitySchemes: {
       utenteCorrente: {
-        type: "apiKey",
-        in: "header",
-        name: "x-user-id",
-        description: "Id dell'utente che esegue l'operazione (segnaposto finché non c'è un login vero)",
+        type: "http",
+        scheme: "bearer",
+        description: "Token restituito da POST /auth/login (firmato dal server, con scadenza)",
       },
     },
     schemas: {
@@ -81,6 +82,7 @@ export const openApiSpec = {
           },
         },
       },
+      Login: fromZod(loginSchema),
       CreaSegnalazione: fromZod(creaSegnalazioneSchema),
       CambiaStato: fromZod(cambiaStatoSchema),
     },
@@ -94,6 +96,35 @@ export const openApiSpec = {
           "200": { description: "App e database raggiungibili" },
           "503": { description: "Database non raggiungibile" },
         },
+      },
+    },
+    "/auth/login": {
+      post: {
+        tags: ["Autenticazione"],
+        summary: "Accesso con email e password: restituisce il token",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/Login" },
+              example: { email: "tecnico@demo.it", password: "password" },
+            },
+          },
+        },
+        responses: {
+          "200": { description: "{ token, tokenType, expiresIn, utente }" },
+          "400": errore("Dati non validi"),
+          "401": errore("Email o password non corrette"),
+          "429": errore("Troppi tentativi falliti: riprovare tra 15 minuti"),
+        },
+      },
+    },
+    "/auth/me": {
+      get: {
+        tags: ["Autenticazione"],
+        summary: "Utente del token corrente, con i ruoli",
+        security: [{ utenteCorrente: [] }],
+        responses: { "200": { description: "Utente corrente" }, "401": errore("Token mancante, scaduto o non valido") },
       },
     },
     "/categorie": {
@@ -166,7 +197,7 @@ export const openApiSpec = {
         responses: {
           "201": { description: "Segnalazione creata" },
           "400": errore("Dati non validi o riferimento inesistente"),
-          "401": errore("Header x-user-id mancante o utente inesistente"),
+          "401": errore("Token mancante, scaduto o non valido"),
           "403": errore("Ruolo non autorizzato"),
         },
       },
@@ -204,7 +235,7 @@ export const openApiSpec = {
         responses: {
           "200": { description: "Segnalazione aggiornata" },
           "400": errore("Transizione non ammessa o dati non validi"),
-          "401": errore("Header x-user-id mancante o utente inesistente"),
+          "401": errore("Token mancante, scaduto o non valido"),
           "403": errore("Ruolo non autorizzato"),
           "404": errore("Segnalazione non trovata"),
           "409": errore("Modificata nel frattempo da un altro utente"),

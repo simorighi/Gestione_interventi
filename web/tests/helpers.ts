@@ -1,6 +1,7 @@
 // Strumenti comuni ai test di integrazione.
 import bcrypt from "bcryptjs";
 import { db } from "@/server/db";
+import { emettiToken } from "@/server/token";
 
 export const PASSWORD_TEST = "password-di-test";
 
@@ -13,8 +14,8 @@ type Opzioni = {
 };
 
 /** Header che identificano l'utente nella richiesta. Unico punto da cambiare se cambia l'autenticazione. */
-export async function headerAutenticazione(utenteId: number): Promise<Record<string, string>> {
-  return { "x-user-id": String(utenteId) };
+export function headerAutenticazione(utenteId: number): Record<string, string> {
+  return { authorization: `Bearer ${emettiToken(utenteId, process.env.AUTH_SECRET!, 3600)}` };
 }
 
 /** Chiama un route handler come farebbe Next.js e restituisce status e body JSON. */
@@ -22,7 +23,7 @@ export async function chiama<Ctx>(
   handler: (request: Request, ctx: Ctx) => Promise<Response>,
   metodo: string, percorso: string, o: Opzioni = {}) {
   const headers: Record<string, string> = { ...o.headers };
-  if (o.utente !== undefined) Object.assign(headers, await headerAutenticazione(o.utente));
+  if (o.utente !== undefined) Object.assign(headers, headerAutenticazione(o.utente));
   if (o.body !== undefined) headers["content-type"] = "application/json";
 
   const request = new Request(`http://localhost${percorso}`, {

@@ -4,6 +4,7 @@ import { inject, vi } from "vitest";
 // Il database temporaneo avviato da global-db.ts.
 process.env.DATABASE_URL = inject("databaseUrl");
 process.env.LOG_LEVEL = "error";
+process.env.AUTH_SECRET = "segreto-solo-per-i-test-almeno-32-caratteri";
 
 // `connection()` di Next.js funziona solo dentro una richiesta servita da Next:
 // chiamando i route handler direttamente non serve, quindi diventa un no-op.

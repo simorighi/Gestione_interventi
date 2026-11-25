@@ -1,30 +1,67 @@
 # Richieste di prova (REST Client per VS Code / HTTP client di JetBrains).
-# Gli id utente (header x-user-id) e i luoghi vengono creati da `npm run db:seed`,
-# che stampa gli id: aggiorna i valori qui sotto se non coincidono.
+# Utenti demo creati da `npm run db:seed` (password: "password").
+# Il login salva il token e le richieste successive lo usano.
 @base = http://localhost:3000/api
 
 ### Salute app + DB
 GET {{base}}/health
 
+### Login come Responsabile
+# @name responsabile
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "responsabile@demo.it", "password": "password" }
+
+### Login come Segnalatore
+# @name segnalatore
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "segnalatore@demo.it", "password": "password" }
+
+### Login come Tecnico
+# @name tecnico
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "tecnico@demo.it", "password": "password" }
+
+### Password sbagliata -> 401 (stesso messaggio di un'email inesistente)
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "responsabile@demo.it", "password": "sbagliata" }
+
+### Chi sono
+GET {{base}}/auth/me
+Authorization: Bearer {{responsabile.response.body.token}}
+
 ### Anagrafiche
 GET {{base}}/stati
+Authorization: Bearer {{segnalatore.response.body.token}}
 ###
 GET {{base}}/categorie
+Authorization: Bearer {{segnalatore.response.body.token}}
 ###
 GET {{base}}/priorita
+Authorization: Bearer {{segnalatore.response.body.token}}
 ###
 GET {{base}}/luoghi
+Authorization: Bearer {{segnalatore.response.body.token}}
 
 ### Lista segnalazioni (tutti i filtri sono opzionali)
 GET {{base}}/segnalazioni?page=1&pageSize=10&q=luci
+Authorization: Bearer {{responsabile.response.body.token}}
 
 ### Dettaglio
 GET {{base}}/segnalazioni/1
+Authorization: Bearer {{responsabile.response.body.token}}
 
 ### Crea segnalazione (come Segnalatore)
 POST {{base}}/segnalazioni
 Content-Type: application/json
-x-user-id: 1
+Authorization: Bearer {{segnalatore.response.body.token}}
 
 {
   "titolo": "Condizionatore rumoroso",
@@ -37,13 +74,19 @@ x-user-id: 1
 ### Cambio stato Segnalato -> Preso in carico (come Responsabile)
 PATCH {{base}}/segnalazioni/1/stato
 Content-Type: application/json
-x-user-id: 3
+Authorization: Bearer {{responsabile.response.body.token}}
 
 { "statoId": 2, "motivo": "Presa in carico dal responsabile" }
 
 ### Transizione non ammessa -> 400
 PATCH {{base}}/segnalazioni/1/stato
 Content-Type: application/json
-x-user-id: 3
+Authorization: Bearer {{responsabile.response.body.token}}
 
 { "statoId": 5 }
+
+### Senza token -> 401
+PATCH {{base}}/segnalazioni/1/stato
+Content-Type: application/json
+
+{ "statoId": 2 }

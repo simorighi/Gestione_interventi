@@ -35,7 +35,7 @@ export const GET = route(async (request) => {
  * POST /api/segnalazioni — CREA UNA NUOVA SEGNALAZIONE
  *
  * Chi può chiamarla: Segnalatore, Responsabile manutenzione, Amministratore
- *   (header obbligatorio `x-user-id`; il segnalatore registrato è l'utente dell'header).
+ *   (header obbligatorio `Authorization: Bearer <token>`; il segnalatore registrato è l'utente del token).
  * Body JSON:
  *   { titolo, descrizione, luogoId, categoriaId, prioritaPropostaId }   ← tutti obbligatori
  *
@@ -45,7 +45,7 @@ export const GET = route(async (request) => {
  * Risposte: 201 creata · 400 dati non validi · 401 manca l'utente · 403 ruolo non ammesso
  */
 export const POST = route(async (request) => {
-  // 1. Chi sta facendo la richiesta? (legge x-user-id e carica l'utente con i suoi ruoli)
+  // 1. Chi sta facendo la richiesta? (verifica il token e carica l'utente con i suoi ruoli)
   const user = await getCurrentUser(request);
 
   // 2. Ha il permesso? Se non ha almeno uno di questi ruoli → 403.

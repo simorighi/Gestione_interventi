@@ -1,13 +1,15 @@
 const ENDPOINTS = [
   ["GET", "/api/health", "stato app + connessione DB"],
+  ["POST", "/api/auth/login", "accesso: email + password → token"],
+  ["GET", "/api/auth/me", "utente del token"],
   ["GET", "/api/categorie", "categorie attive"],
   ["GET", "/api/priorita", "priorità"],
   ["GET", "/api/stati", "stati del workflow"],
   ["GET", "/api/luoghi", "luoghi (gerarchia)"],
   ["GET", "/api/segnalazioni", "lista con filtri e paginazione"],
-  ["POST", "/api/segnalazioni", "crea segnalazione (header x-user-id)"],
+  ["POST", "/api/segnalazioni", "crea segnalazione (token Bearer)"],
   ["GET", "/api/segnalazioni/:id", "dettaglio + storico"],
-  ["PATCH", "/api/segnalazioni/:id/stato", "cambio stato (header x-user-id)"],
+  ["PATCH", "/api/segnalazioni/:id/stato", "cambio stato (token Bearer)"],
 ] as const;
 
 export default function Home() {

@@ -17,7 +17,7 @@ const html = `<!doctype html>
     SwaggerUIBundle({
       url: "/api/openapi.json",
       dom_id: "#swagger-ui",
-      persistAuthorization: true, // ricorda l'x-user-id inserito in "Authorize"
+      persistAuthorization: true, // ricorda il token inserito in "Authorize"
       tryItOutEnabled: true,
     });
   </script>

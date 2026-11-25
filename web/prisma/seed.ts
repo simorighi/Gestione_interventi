@@ -1,9 +1,11 @@
-// Dati demo per provare le API. Ruoli, stati, priorità e categorie sono già
-// su Supabase e qui vengono solo letti. Idempotente: rilanciarlo non duplica nulla.
+// Dati demo per provare le API. Ruoli, stati, priorità e categorie su Supabase
+// esistono già: vengono creati (prisma/riferimento.ts) solo se le tabelle sono
+// vuote, cioè su un database nuovo. Idempotente: rilanciarlo non duplica nulla.
 import "dotenv/config";
 import bcrypt from "bcryptjs";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
+import { inserisciRiferimento } from "./riferimento";
 
 const db = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
@@ -23,6 +25,7 @@ const UTENTI = [
 ];
 
 async function main() {
+  await inserisciRiferimento(db);
   const passwordHash = await bcrypt.hash(PASSWORD_DEMO, 10);
   const utenti: Record<string, number> = {};
 
@@ -115,8 +118,8 @@ async function main() {
 }
 
 function stampaUtenti(utenti: Record<string, number>) {
-  console.log("Seed completato. Utenti demo (password: %s) — usa l'id come header x-user-id:", PASSWORD_DEMO);
-  console.table(Object.entries(utenti).map(([ruolo, id]) => ({ id, ruolo })));
+  console.log("Seed completato. Utenti demo (password: %s) — accedi con POST /api/auth/login:", PASSWORD_DEMO);
+  console.table(UTENTI.map((u) => ({ id: utenti[u.ruolo], ruolo: u.ruolo, email: u.email })));
 }
 
 main()
