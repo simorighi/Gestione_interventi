@@ -47,3 +47,6 @@ next-env.d.ts
 
 # prisma client generato
 /src/generated/prisma
+
+# database locale di sviluppo (npm run db:locale)
+/.db-locale
