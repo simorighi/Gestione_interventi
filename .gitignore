@@ -1,0 +1,2 @@
+# Secret Kubernetes con credenziali reali (vedi k8s/secret-example.yaml)
+k8s/secret.yaml

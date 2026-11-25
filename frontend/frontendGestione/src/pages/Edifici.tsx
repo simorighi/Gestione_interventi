@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Table, Badge, Button, Row, Col, Form, Modal, ListGroup, Tabs, Tab } from 'react-bootstrap';
+import { Card, Table, Badge, Button, Row, Col, Modal, Tabs, Tab } from 'react-bootstrap';
 import { edifici, type Edificio } from '../data/mockData';
 
 export function Edifici() {

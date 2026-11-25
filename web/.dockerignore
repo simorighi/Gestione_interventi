@@ -1,0 +1,11 @@
+# Il contesto di build è web/: escludiamo ciò che non deve entrare nell'immagine.
+node_modules
+.next
+.git
+# Mai segreti nell'immagine (.env.example resta, non contiene valori reali)
+.env*
+!.env.example
+*.tsbuildinfo
+npm-debug.log*
+Dockerfile
+.dockerignore
