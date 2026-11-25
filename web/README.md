@@ -10,15 +10,28 @@ Backend delle API per la gestione delle segnalazioni di manutenzione.
 
 ```bash
 cd web
-npm install          # installa le dipendenze e genera il client Prisma
+npm install          # installa le dipendenze e genera il client Prisma (non serve .env)
+cp .env.example .env # poi inserisci DATABASE_URL e AUTH_SECRET (vedi sotto)
 npm run dev          # avvia su http://localhost:3000
 ```
 
 Poi apri **http://localhost:3000/api/docs** per provare le API dal browser (vedi §3).
+Se manca una variabile obbligatoria il server **non parte** e scrive quale manca.
+
+**Senza Supabase** (es. a casa, o per non toccare il DB condiviso):
+
+```bash
+npm run db:locale    # terminale 1: PostgreSQL locale in web/.db-locale, resta acceso
+# terminale 2:
+DATABASE_URL=postgresql://dev:dev@127.0.0.1:54320/nordfacility npm run db:seed
+```
+
+e in `.env` metti `DATABASE_URL=postgresql://dev:dev@127.0.0.1:54320/nordfacility`.
 
 ### Il file `.env`
 
- in `.env` e inserisci la stringa di connessione:
+Copia `.env.example` in `.env`. Genera la chiave dei token con `openssl rand -base64 48`
+e mettila in `AUTH_SECRET`. Poi inserisci la stringa di connessione:
 
 ```
 DATABASE_URL="postgresql://postgres.<PROJECT_REF>:<PASSWORD>@aws-0-<REGION>.pooler.supabase.com:5432/postgres"
@@ -84,13 +97,18 @@ export const POST = route(async (request) => {
 
 ### ② Autenticazione — `src/server/auth.ts`
 
-- `getCurrentUser(request)`: legge l'utente dall'header `x-user-id` e carica i suoi ruoli dal DB.
+- `login(email, password)` (usata da `POST /api/auth/login`): confronta la password con
+  `password_hash` (bcrypt) e restituisce un **token firmato** (`src/server/token.ts`,
+  HMAC-SHA256 con `AUTH_SECRET`, scadenza `AUTH_TOKEN_TTL_MIN`). Email sbagliata e password
+  sbagliata danno lo stesso 401; dopo 5 tentativi falliti in 15 minuti → 429.
+- `getCurrentUser(request)`: verifica il token in `Authorization: Bearer <token>` e ricarica
+  utente e ruoli dal DB a ogni richiesta (un utente disattivato perde l'accesso subito).
 - `requireRole(user, ...ruoli)`: se l'utente non ha nessuno dei ruoli → errore 403.
 - `RUOLI`: i nomi dei ruoli, **identici** a quelli nella tabella `ruolo`.
 
-⚠️ **È un segnaposto per sviluppo**: chiunque può mandare `x-user-id: 4` e diventare
-amministratore. Prima di andare in produzione va sostituito con un login vero
-(es. Supabase Auth). Le route non cambieranno: cambia solo l'interno di `getCurrentUser`.
+Chi vede cosa lo decide `filtroVisibilita()` in `segnalazioni.service.ts`, **dentro la query**:
+Responsabile/Amministratore tutto, Tecnico le segnalazioni assegnate a lui, Segnalatore le
+sue. Una segnalazione non di competenza risponde 404.
 
 ### ③ Validazione — `src/server/validation/`
 
@@ -130,7 +148,11 @@ I service non sanno niente di HTTP: possono essere riusati da altre route o da s
 
 | File | A cosa serve |
 |---|---|
-| `src/server/http.ts` | `route()` cattura ogni errore e lo trasforma in JSON uniforme; `json()` risponde gestendo i BigInt; `readJson()` legge il body |
+| `src/server/http.ts` | `route()` cattura ogni errore e lo trasforma in JSON uniforme e scrive il log della richiesta; `json()` risponde gestendo i BigInt; `readJson()` legge il body |
+| `src/server/config.ts` | legge e valida **tutte** le variabili d'ambiente (fail-fast all'avvio, da `src/instrumentation.ts`) |
+| `src/proxy.ts` | CORS (da `CORS_ORIGIN`) e header di sicurezza su tutte le risposte `/api` |
+| `src/server/token.ts` | firma e verifica dei token di accesso |
+| `src/server/log.ts` | log strutturato JSON |
 | `src/server/errors.ts` | errori applicativi (`notFound`, `badRequest`, `forbidden`...) con il loro status HTTP |
 | `src/server/openapi.ts` | la specifica OpenAPI mostrata in Swagger UI |
 | `prisma/seed.ts` | inserisce dati demo (utenti, luoghi, segnalazioni) |
@@ -148,11 +170,18 @@ Tutti gli errori hanno la stessa forma, così il frontend li gestisce in un punt
 | Status | Quando |
 |---|---|
 | 400 | dati non validi, transizione di stato non ammessa, id inesistente in un riferimento |
-| 401 | manca `x-user-id` o l'utente non esiste / non è attivo |
+| 401 | token mancante, scaduto o manomesso, oppure utente disattivato |
 | 403 | l'utente non ha il ruolo richiesto |
 | 404 | risorsa non trovata |
 | 409 | conflitto (valore duplicato, modifica concorrente) |
-| 500 | errore imprevisto (dettagli nel terminale di `npm run dev`) |
+| 429 | troppi tentativi di login falliti |
+| 500 | errore imprevisto: dettagli solo nel log del server, cercando l'`x-request-id` della risposta |
+
+### Log
+
+Ogni richiesta API scrive una riga JSON (`src/server/log.ts`) con `requestId`, `userId`,
+metodo, percorso, status e durata. Password, token, header, body ed email non vengono mai
+registrati. Il livello si sceglie con `LOG_LEVEL`.
 
 ---
 
@@ -164,23 +193,24 @@ Tutti gli errori hanno la stessa forma, così il frontend li gestisce in un punt
    **Execute**. Sotto vedi la richiesta inviata (anche come comando `curl`) e la risposta reale
    del database.
 
-### Endpoint che scrivono (POST / PATCH)
+### Autenticarsi
 
-Richiedono un utente. In alto a destra clicca **Authorize** e inserisci un id utente nel campo
-`x-user-id`. Il valore resta salvato anche se ricarichi la pagina.
+Tutti gli endpoint, tranne `/health` e `/auth/login`, richiedono il token.
 
-Gli utenti nel DB all'inizio sono zero. Per crearne di prova: `npm run db:seed`. Il comando
-stampa gli id con i ruoli, per esempio:
+1. `POST /auth/login` con `{ "email": "responsabile@demo.it", "password": "password" }`
+2. copia il `token` della risposta
+3. in alto a destra **Authorize** → incolla il token (resta salvato se ricarichi la pagina)
 
-```
-┌─────┬───────────────────────────┐
-│ id  │ ruolo                     │
-│ 1   │ Segnalatore               │   → può creare segnalazioni
-│ 2   │ Tecnico                   │   → può cambiare stato
-│ 3   │ Responsabile manutenzione │   → può creare e cambiare stato
-│ 4   │ Amministratore            │   → può tutto
-└─────┴───────────────────────────┘
-```
+Gli utenti nel DB all'inizio sono zero. Per crearne di prova: `npm run db:seed`:
+
+| Email | Ruolo | Può |
+|---|---|---|
+| `segnalatore@demo.it` | Segnalatore | creare segnalazioni, vedere le proprie |
+| `tecnico@demo.it` | Tecnico | vedere e cambiare stato solo delle segnalazioni assegnate a lui |
+| `responsabile@demo.it` | Responsabile manutenzione | vedere tutto, assegnare tecnici, cambiare stato |
+| `admin@demo.it` | Amministratore | tutto |
+
+Swagger UI è attivo in sviluppo e spento in produzione (`API_DOCS=true` per riaccenderlo).
 
 Il seed scrive sul database condiviso del team (4 utenti demo con password `password`, alcuni
 luoghi, 2 segnalazioni). Si può rilanciare senza creare duplicati.
@@ -188,8 +218,9 @@ luoghi, 2 segnalazioni). Si può rilanciare senza creare duplicati.
 ### Un giro di prova completo
 
 1. `GET /luoghi`, `/categorie`, `/priorita`: annota gli id da usare
-2. Authorize con l'id del **Segnalatore** → `POST /segnalazioni` → risposta 201 con l'id creato
-3. Authorize con l'id del **Responsabile** → `PATCH /segnalazioni/{id}/stato` con
+2. Login e Authorize come **Segnalatore** → `POST /segnalazioni` → risposta 201 con l'id creato
+3. Login e Authorize come **Responsabile** → `POST /segnalazioni/{id}/assegnazioni` con
+   `{ "tecnicoIds": [2] }` → 201; poi `PATCH /segnalazioni/{id}/stato` con
    `{ "statoId": 2 }` (Preso in carico) → 200
 4. Ripeti con `{ "statoId": 5 }` (Risolto) direttamente → **400**: la transizione non è ammessa
 5. `GET /segnalazioni/{id}` → vedi lo `storicoStati` e le `transizioniAmmesse`
@@ -207,13 +238,28 @@ luoghi, 2 segnalazioni). Si può rilanciare senza creare duplicati.
 
 ## 4. Aggiungere un nuovo endpoint
 
-Esempio: `POST /api/segnalazioni/{id}/assegnazioni`.
+Esempio già fatto: `POST /api/segnalazioni/{id}/assegnazioni`.
 
 1. **Validazione**: aggiungi lo schema zod in `src/server/validation/`
 2. **Service**: scrivi la funzione in `src/server/services/` (query, regole, transazione, audit)
-3. **Route**: crea `src/app/api/segnalazioni/[id]/assegnazioni/route.ts`, avvolta in `route(...)`
+3. **Route**: crea `src/app/api/segnalazioni/[id]/assegnazioni/route.ts`, avvolta in `route(...)`,
+   con `getCurrentUser` e `requireRole` come prime righe
 4. **Documentazione**: aggiungi il path in `src/server/openapi.ts` così compare in Swagger UI
-5. `npm run typecheck` e prova da `/api/docs`
+5. **Test**: un file in `tests/integration/` (vedi `assegnazioni.test.ts`)
+6. `npm test`, `npm run typecheck`, `npm run lint`
+
+## 4b. Test
+
+```bash
+npm test                    # tutti (unit + integration)
+npm run test:unit           # solo logica pura, nessun database
+npm run test:integration    # route → service → PostgreSQL vero
+```
+
+I test di integrazione avviano da soli un **PostgreSQL 17 temporaneo** (pacchetto
+`embedded-postgres`): non serve Docker e **non toccano mai Supabase**. Le tabelle sono
+generate da `prisma/schema.prisma`, i dati di riferimento da `prisma/riferimento.ts`.
+La matrice requisito → test è in `docs/test-plan.md`.
 
 ---
 
@@ -222,7 +268,10 @@ Esempio: `POST /api/segnalazioni/{id}/assegnazioni`.
 | Comando | Cosa fa |
 |---|---|
 | `npm run dev` | avvia il server di sviluppo |
-| `npm run build` | build di produzione |
+| `npm run build` | build di produzione (`.next/standalone`, usata dal Dockerfile) |
+| `npm test` | test unitari e di integrazione |
+| `npm run audit` | `npm audit` delle dipendenze di produzione |
+| `npm run db:locale` | PostgreSQL locale di sviluppo (senza Supabase né Docker) |
 | `npm run typecheck` | controlla i tipi TypeScript |
 | `npm run lint` | controlla lo stile del codice |
 | `npm run db:pull` | rilegge le tabelle da Supabase e rigenera il client (dopo modifiche al DB) |
@@ -234,7 +283,10 @@ Esempio: `POST /api/segnalazioni/{id}/assegnazioni`.
 - **Vincoli CHECK**: il DB ha vincoli che Prisma non vede, per esempio `luogo.tipo` deve essere
   edificio/area/impianto e `tecnico.tipo` interno/esterno. Se una scrittura li viola, la
   risposta è un 500 generico. Conviene replicarli negli schemi zod.
-- **RLS**: le tabelle hanno la Row Level Security attiva, ma il backend si collega come utente
-  `postgres`, che la ignora. I permessi li gestisce il backend (`requireRole`).
+- **RLS**: le tabelle hanno la Row Level Security attiva, ma il backend si collega con un
+  utente che la ignora. I permessi li gestisce il backend (`requireRole`, `filtroVisibilita`).
+- **Utente del DB**: in produzione usare `nordfacility_app` (`prisma/sql/02-utente-applicativo.sql`),
+  non `postgres`. `prisma/sql/01-audit-immutabile.sql` impedisce UPDATE/DELETE su `log_audit`.
+  Entrambi vanno eseguiti **una volta** dal SQL editor di Supabase.
 - **Macchina a stati**: le transizioni ammesse sono in `TRANSIZIONI`
-  (`segnalazioni.service.ts`). Per cambiare il workflow si modifica solo quella mappa.
+  (`src/server/workflow.ts`). Per cambiare il workflow si modifica solo quella mappa.
